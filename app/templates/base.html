@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#01696f">
+  <title>FyP — Find Your Place</title>
+  <link rel="icon" type="image/jpeg" href="{{ url_for('static', filename='images/fyp-logo.jpg') }}">
+  <link rel="manifest" href="{{ url_for('static', filename='manifest.webmanifest') }}">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <meta name="csrf-token" content="{{ csrf_token() }}">
+</head>
+<body data-user-role="{{ current_user.role if current_user.is_authenticated else '' }}">
+
+{% if current_user.is_authenticated %}
+<header class="topbar">
+  <a href="{{ url_for('main.index') }}" class="topbar-brand">
+    <img src="{{ url_for('static', filename='images/fyp-logo.jpg') }}"
+         alt="FyP" class="topbar-img-logo">
+    <span class="topbar-appname">FyP</span>
+    {% if active_research %}
+    <span class="research-badge">📍 {{ active_research.name }}</span>
+    {% endif %}
+  </a>
+  <nav>
+    <a href="{{ url_for('main.index') }}">🗺 Mappa</a>
+    <a href="{{ url_for('properties.list_properties') }}" style="position:relative">
+      🏠 Immobili
+      {% if badge_da_valutare > 0 %}
+        <span class="nav-badge">{{ badge_da_valutare }}</span>
+      {% endif %}
+    </a>
+    <a href="{{ url_for('contacts.list_contacts') }}">👤 Contatti</a>
+    <a href="{{ url_for('researches.list_researches') }}">🔍 Ricerche</a>
+    {% if current_user.role in ['admin', 'editor'] %}
+      <a href="{{ url_for('main.activity_log') }}">📋 Log</a>
+    {% endif %}
+    {% if current_user.role == 'admin' %}
+      <a href="{{ url_for('admin.dashboard') }}">⚙️ Admin</a>
+    {% endif %}
+    <a href="{{ url_for('notifications.list_notifications') }}" class="notif-btn" title="Notifiche">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/>
+        <path d="M13.73 21a2 2 0 0 1-3.46 0"/>
+      </svg>
+      {% if unread_notifications > 0 %}
+      <span class="notif-badge">
+        {{ unread_notifications if unread_notifications < 100 else '99+' }}
+      </span>
+      {% endif %}
+    </a>
+    <a href="{{ url_for('auth.profile') }}">👤 Profilo</a>
+    <a href="{{ url_for('auth.logout') }}" class="logout">Esci</a>
+  </nav>
+</header>
+
+<!-- BOTTOM NAV (mobile) -->
+<nav class="mobile-nav">
+  <div class="mobile-nav-items">
+    <a href="{{ url_for('main.index') }}" class="mobile-nav-item">
+      <span class="mn-icon">🗺</span>
+      <span>Mappa</span>
+    </a>
+    <a href="{{ url_for('properties.list_properties') }}" class="mobile-nav-item">
+      <span class="mn-icon">🏠</span>
+      {% if badge_da_valutare > 0 %}<span class="mn-badge">{{ badge_da_valutare }}</span>{% endif %}
+      <span>Immobili</span>
+    </a>
+    <a href="{{ url_for('contacts.list_contacts') }}" class="mobile-nav-item">
+      <span class="mn-icon">👤</span>
+      <span>Contatti</span>
+    </a>
+    <a href="{{ url_for('researches.list_researches') }}" class="mobile-nav-item">
+      <span class="mn-icon">🔍</span>
+      <span>Ricerche</span>
+    </a>
+    <a href="{{ url_for('auth.profile') }}" class="mobile-nav-item">
+      <span class="mn-icon">⚙️</span>
+      <span>Profilo</span>
+    </a>
+  </div>
+</nav>
+{% endif %}
+
+<div class="page-shell">
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    <div class="flash-stack">
+      {% for category, message in messages %}
+      <div class="flash flash-{{ category }}">{{ message }}</div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  {% endwith %}
+  {% block content %}{% endblock %}
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="{{ url_for('static', filename='js/app.js') }}" defer></script>
+<script>
+  (function () {
+    const token = document.querySelector('meta[name="csrf-token"]')?.content;
+    if (!token) return;
+    document.addEventListener('DOMContentLoaded', function () {
+      document.querySelectorAll('form[method="post"], form[method="POST"]').forEach(function (form) {
+        if (form.querySelector('input[name="csrf_token"]')) return;
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'csrf_token';
+        input.value = token;
+        form.prepend(input);
+      });
+    });
+  })();
+</script>
+</body>
+</html>

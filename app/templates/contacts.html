@@ -1,0 +1,48 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <h1>👤 Contatti</h1>
+  {% if current_user.role in ['admin','editor'] %}
+  <a href="{{ url_for('contacts.new_contact') }}" class="btn btn-primary">+ Nuovo</a>
+  {% endif %}
+</div>
+
+{% if contacts %}
+<div class="cards-grid">
+  {% for c in contacts %}
+  <a href="{{ url_for('contacts.detail_contact', contact_id=c.id) }}"
+     style="text-decoration:none;color:var(--text)">
+    <div class="card contact-card">
+      <div class="contact-avatar">
+        {{ '🏢' if c.contact_type == 'Agenzia' else '👤' }}
+      </div>
+      <div class="contact-info" style="flex:1;min-width:0">
+        <h3 style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ c.name }}</h3>
+        {% if c.agency %}<p>{{ c.agency }}</p>{% endif %}
+        {% if c.phone %}<p>📞 {{ c.phone }}</p>{% endif %}
+        <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
+          <span class="badge badge-default">{{ c.contact_type }}</span>
+          {% if counts[c.id] > 0 %}
+          <span class="badge badge-primary">
+            🏠 {{ counts[c.id] }} {{ 'immobile' if counts[c.id] == 1 else 'immobili' }}
+          </span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+
+{% else %}
+<div class="empty-state">
+  <div class="empty-icon">👤</div>
+  <h3>Nessun contatto ancora</h3>
+  {% if current_user.role in ['admin','editor'] %}
+  <a href="{{ url_for('contacts.new_contact') }}" class="btn btn-primary" style="margin-top:16px">
+    Aggiungi il primo contatto
+  </a>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

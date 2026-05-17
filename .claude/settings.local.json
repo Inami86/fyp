@@ -1,0 +1,8 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Get-ChildItem -Path \"d:\\\\Progetti APP\\\\FyP\\\\fyp trial\" -Recurse | Select-Object -Property FullName, PSIsContainer | ForEach-Object { if \\($_.PSIsContainer\\) { $_.FullName + \" [DIR]\" } else { $_.FullName } })",
+      "PowerShell(Test-Path \"d:\\\\Progetti APP\\\\FyP\\\\fyp trial\\\\instance\\\\fyp.sqlite\" -PathType Leaf; if \\($?\\) { \\(Get-Item \"d:\\\\Progetti APP\\\\FyP\\\\fyp trial\\\\instance\\\\fyp.sqlite\"\\).Length } else { \"File not found\" })"
+    ]
+  }
+}

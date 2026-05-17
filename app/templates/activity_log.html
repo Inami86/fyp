@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>📋 Log attività</h1>
+    <p style="color:var(--muted);font-size:13px;margin-top:3px">
+      Ultime 200 azioni del team su questa ricerca
+    </p>
+  </div>
+</div>
+
+<!-- FILTRO -->
+<form method="get" class="filter-bar" style="margin-bottom:16px">
+  <select name="action" style="font-size:13px">
+    <option value="">Tutte le azioni</option>
+    {% for a in actions %}
+    <option {% if action_filter == a %}selected{% endif %} value="{{ a }}">{{ a }}</option>
+    {% endfor %}
+  </select>
+  <button class="btn btn-primary btn-sm" type="submit">Filtra</button>
+  <a class="btn btn-ghost btn-sm" href="{{ url_for('main.activity_log') }}">✕</a>
+</form>
+
+{% if logs %}
+<div class="card" style="overflow:hidden">
+  <table style="width:100%;font-size:13px;border-collapse:collapse">
+    <thead>
+      <tr style="background:var(--surface-2);text-align:left">
+        <th style="padding:10px 14px;font-weight:600;color:var(--muted);width:32px"></th>
+        <th style="padding:10px 14px;font-weight:600;color:var(--muted)">Dettaglio</th>
+        <th style="padding:10px 14px;font-weight:600;color:var(--muted)">Utente</th>
+        <th style="padding:10px 14px;font-weight:600;color:var(--muted);white-space:nowrap">Data / Ora</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% set icons = {
+        'create_property':'🏠','edit_property':'✏️','delete_property':'🗑',
+        'create_contact':'👤','edit_contact':'✏️','delete_contact':'🗑',
+        'comment':'💬'
+      } %}
+      {% for log in logs %}
+      <tr style="border-top:1px solid var(--border)">
+        <td style="padding:9px 14px;font-size:16px">{{ icons.get(log.action, '📌') }}</td>
+        <td style="padding:9px 14px;max-width:320px">
+          <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+            {{ log.detail }}
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:1px">{{ log.action }}</div>
+        </td>
+        <td style="padding:9px 14px;white-space:nowrap;color:var(--muted)">
+          {% set author = users_map.get(log.user_id) %}
+          {% if author %}{{ author.full_name }}{% else %}—{% endif %}
+        </td>
+        <td style="padding:9px 14px;white-space:nowrap;color:var(--muted)">
+          {{ log.timestamp.strftime('%d/%m/%Y %H:%M') if log.timestamp else '—' }}
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div style="text-align:center;padding:60px 20px;color:var(--muted)">
+  <div style="font-size:48px;margin-bottom:12px">📋</div>
+  <p style="font-size:15px;font-weight:700">Nessuna attività trovata</p>
+</div>
+{% endif %}
+{% endblock %}

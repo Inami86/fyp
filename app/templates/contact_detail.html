@@ -1,0 +1,167 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div style="display:flex;align-items:center;gap:14px">
+    <div style="width:52px;height:52px;border-radius:50%;background:var(--primary-hl);
+                display:grid;place-items:center;font-size:24px;color:var(--primary);flex-shrink:0">
+      {{ '🏢' if contact.contact_type == 'Agenzia' else '👤' }}
+    </div>
+    <div>
+      <h1 style="margin:0">{{ contact.name }}</h1>
+      <div style="color:var(--muted);font-size:14px;margin-top:2px">
+        {{ contact.contact_type }}{% if contact.agency %} · {{ contact.agency }}{% endif %}
+      </div>
+    </div>
+  </div>
+  {% if current_user.role in ['admin','editor'] %}
+  <div style="display:flex;gap:8px;flex-shrink:0">
+    <a href="{{ url_for('contacts.edit_contact', contact_id=contact.id) }}"
+       class="btn btn-secondary">✏️ Modifica</a>
+    <form method="post"
+          action="{{ url_for('contacts.delete_contact', contact_id=contact.id) }}"
+          onsubmit="return confirm('Eliminare questo contatto?')">
+      <button class="btn btn-ghost" style="color:var(--error)">🗑 Elimina</button>
+    </form>
+  </div>
+  {% endif %}
+</div>
+
+<div class="layout-2col">
+
+  <!-- COLONNA PRINCIPALE -->
+  <div style="display:grid;gap:16px">
+
+    <!-- INFORMAZIONI -->
+    <div class="card card-body">
+      <h2 class="section-label" style="margin-bottom:14px">Informazioni</h2>
+      <div class="info-rows">
+        {% if contact.phone %}
+        <div class="info-row">
+          <span class="info-label">Telefono</span>
+          <a href="tel:{{ contact.phone }}" style="color:var(--primary);font-weight:600">
+            {{ contact.phone }}
+          </a>
+        </div>
+        {% endif %}
+        {% if contact.email %}
+        <div class="info-row">
+          <span class="info-label">Email</span>
+          <a href="mailto:{{ contact.email }}" style="color:var(--primary);font-weight:600">
+            {{ contact.email }}
+          </a>
+        </div>
+        {% endif %}
+        {% if contact.agency %}
+        <div class="info-row">
+          <span class="info-label">Agenzia</span>
+          <span>{{ contact.agency }}</span>
+        </div>
+        {% endif %}
+        {% if contact.city or contact.address %}
+        <div class="info-row">
+          <span class="info-label">Sede</span>
+          <span>
+            {{ contact.address if contact.address else '' }}
+            {%- if contact.address and contact.city %}, {% endif -%}
+            {{ contact.city if contact.city else '' }}
+          </span>
+        </div>
+        {% endif %}
+        {% if contact.notes %}
+        <div class="info-row">
+          <span class="info-label">Note</span>
+          <span style="white-space:pre-line">{{ contact.notes }}</span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- IMMOBILI COLLEGATI -->
+    <div class="card card-body">
+      <h2 class="section-label" style="margin-bottom:14px">
+        🏠 Immobili collegati ({{ linked_props|length }})
+      </h2>
+
+      {% if linked_props %}
+      <div style="display:grid;gap:10px;margin-bottom:16px">
+        {% for item in linked_props %}
+        <div style="display:flex;gap:12px;align-items:center;padding:10px 12px;
+             background:var(--surface-2);border-radius:var(--r-md)">
+          <div style="flex:1;min-width:0">
+            <a href="{{ url_for('properties.detail_property', prop_id=item.prop.id) }}"
+               style="font-weight:700;font-size:14px;color:var(--text);text-decoration:none">
+              {{ item.prop.title | truncate(45) }}
+            </a>
+            <div style="font-size:12px;color:var(--muted);margin-top:2px">
+              📍 {{ item.mun.name if item.mun else '—' }}
+              {% if item.prop.price %}
+              · {{ '{:,.0f}'.format(item.prop.price).replace(',','.') }} €
+              {% endif %}
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;flex-shrink:0">
+            <span class="badge badge-default" style="font-size:11px">{{ item.relation }}</span>
+            {% if current_user.role in ['admin','editor'] %}
+            <form method="post"
+                  action="{{ url_for('contacts.unlink_property', contact_id=contact.id, prop_id=item.prop.id) }}">
+              <button class="btn btn-ghost" style="padding:3px 7px;font-size:12px;color:var(--error)"
+                      title="Scollega">✕</button>
+            </form>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p style="color:var(--muted);font-size:13px;margin-bottom:16px">
+        Nessun immobile collegato a questo contatto.
+      </p>
+      {% endif %}
+
+      {% if current_user.role in ['admin','editor'] %}
+      <div style="padding-top:14px;border-top:1px solid var(--border)">
+        <div style="font-size:13px;font-weight:700;margin-bottom:8px;color:var(--muted)">
+          COLLEGA IMMOBILE
+        </div>
+        <form method="post"
+              action="{{ url_for('contacts.link_property', contact_id=contact.id) }}"
+              style="display:flex;gap:8px;flex-wrap:wrap">
+          <select name="property_id" class="form-select" style="flex:1;min-width:140px" required>
+            <option value="">— Seleziona immobile —</option>
+            {% for prop in all_props %}
+            {% if prop.id not in (linked_props|map(attribute='prop')|map(attribute='id')|list) %}
+            <option value="{{ prop.id }}">{{ prop.title | truncate(40) }}</option>
+            {% endif %}
+            {% endfor %}
+          </select>
+          <select name="relation_type" class="form-select">
+            {% for r in relation_types %}
+            <option value="{{ r }}">{{ r }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit" class="btn btn-primary btn-sm">+ Collega</button>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+
+  </div>
+
+  <!-- SIDEBAR -->
+  <div style="display:grid;gap:12px">
+    <div class="card card-body" style="font-size:13px">
+      <h2 class="section-label" style="margin-bottom:10px">Riepilogo</h2>
+      <div style="display:grid;gap:6px;color:var(--muted)">
+        <div>Tipo: <strong style="color:var(--text)">{{ contact.contact_type }}</strong></div>
+        <div>Immobili: <strong style="color:var(--text)">{{ linked_props|length }}</strong></div>
+        {% if contact.created_at %}
+        <div>Aggiunto: <strong style="color:var(--text)">
+          {{ contact.created_at.strftime('%d/%m/%Y') }}
+        </strong></div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}

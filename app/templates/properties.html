@@ -1,0 +1,119 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <h1>🏠 Immobili</h1>
+    <p style="color:var(--muted);font-size:14px;margin-top:3px">
+      {{ pagination.total }} immobili trovati
+      {% if pagination.pages > 1 %}— pagina {{ pagination.page }} di {{ pagination.pages }}{% endif %}
+    </p>
+  </div>
+  <div style="display:flex;gap:8px">
+    <a href="{{ url_for('main.export_properties_csv') }}" class="btn btn-secondary btn-sm">⬇ CSV</a>
+    {% if current_user.role in ['admin','editor'] %}
+    <a href="{{ url_for('properties.new_property') }}" class="btn btn-primary">+ Nuovo</a>
+    {% endif %}
+  </div>
+</div>
+
+<!-- FILTRI -->
+<form method="get" class="filter-bar">
+  <input type="text" name="q" value="{{ search_q }}" placeholder="Cerca per titolo…" style="min-width:180px">
+  <select name="status">
+    <option value="">Tutti gli stati</option>
+    {% for s in ['Da valutare','Interessante','Offerta fatta','Scartato'] %}
+    <option {% if status_filter == s %}selected{% endif %} value="{{ s }}">{{ s }}</option>
+    {% endfor %}
+  </select>
+  <select name="type">
+    <option value="">Tutte le tipologie</option>
+    {% for t in ['Appartamento','Casa indipendente','Rustico','Terreno','Altro'] %}
+    <option {% if type_filter == t %}selected{% endif %} value="{{ t }}">{{ t }}</option>
+    {% endfor %}
+  </select>
+  <select name="comune">
+    <option value="">Tutti i comuni</option>
+    {% for m in municipalities %}
+    <option {% if comune_filter|int == m.id %}selected{% endif %} value="{{ m.id }}">{{ m.name }}</option>
+    {% endfor %}
+  </select>
+  <input type="number" name="price_min" value="{{ price_min }}" placeholder="€ min" style="width:80px;min-width:0">
+  <input type="number" name="price_max" value="{{ price_max }}" placeholder="€ max" style="width:80px;min-width:0">
+  <select name="sort">
+    <option {% if sort_by == 'newest' %}selected{% endif %} value="newest">Più recenti</option>
+    <option {% if sort_by == 'price_asc' %}selected{% endif %} value="price_asc">Prezzo ↑</option>
+    <option {% if sort_by == 'price_desc' %}selected{% endif %} value="price_desc">Prezzo ↓</option>
+  </select>
+  <button type="submit" class="btn btn-primary btn-sm">Filtra</button>
+  <a href="{{ url_for('properties.list_properties') }}" class="btn btn-ghost btn-sm">✕</a>
+</form>
+
+<!-- LISTA -->
+{% if properties %}
+<div class="property-grid">
+  {% for prop in properties %}
+  {% set photo = prop.photos[0] if prop.photos else none %}
+  <a href="{{ url_for('properties.detail_property', prop_id=prop.id) }}" class="property-card">
+    <div class="prop-cover">
+      {% if photo %}
+        {% if photo.external_url %}
+          <img src="{{ photo.external_url }}" alt="{{ prop.title }}" loading="lazy">
+        {% else %}
+          <img src="/uploads/{{ photo.file_path }}" alt="{{ prop.title }}" loading="lazy">
+        {% endif %}
+      {% else %}
+        <div class="prop-cover-placeholder">🏠</div>
+      {% endif %}
+    </div>
+    <div class="prop-body">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px">
+        <span class="prop-title">{{ prop.title | truncate(48) }}</span>
+        <span class="badge badge-{{ prop.status | lower | replace(' ','-') }}">{{ prop.status }}</span>
+      </div>
+      {% set mun = prop.municipality %}
+      <div style="font-size:12px;color:var(--muted)">
+        📍 {{ mun.name if mun else '—' }} · {{ prop.property_type }}
+      </div>
+      {% if prop.price %}
+      <div style="font-size:15px;font-weight:800;color:var(--primary);margin-top:6px">
+        {{ '{:,.0f}'.format(prop.price).replace(',','.') }} €
+      </div>
+      {% endif %}
+    </div>
+  </a>
+  {% endfor %}
+</div>
+
+<!-- PAGINAZIONE -->
+{% if pagination.pages > 1 %}
+<div class="pagination">
+  {% if pagination.has_prev %}
+  <a href="{{ url_for('properties.list_properties', page=pagination.prev_num,
+    q=search_q, status=status_filter, type=type_filter,
+    comune=comune_filter, price_min=price_min, price_max=price_max, sort=sort_by) }}"
+    class="btn btn-secondary btn-sm">← Prec.</a>
+  {% endif %}
+  <span style="font-size:13px;color:var(--muted)">
+    Pagina {{ pagination.page }} di {{ pagination.pages }}
+  </span>
+  {% if pagination.has_next %}
+  <a href="{{ url_for('properties.list_properties', page=pagination.next_num,
+    q=search_q, status=status_filter, type=type_filter,
+    comune=comune_filter, price_min=price_min, price_max=price_max, sort=sort_by) }}"
+    class="btn btn-secondary btn-sm">Succ. →</a>
+  {% endif %}
+</div>
+{% endif %}
+
+{% else %}
+<div class="empty-state">
+  <div class="empty-icon">🏠</div>
+  <h3>Nessun immobile trovato</h3>
+  <p>Prova a cambiare i filtri oppure
+  {% if current_user.role in ['admin','editor'] %}
+  <a href="{{ url_for('properties.new_property') }}" style="color:var(--primary)">aggiungi il primo immobile</a>.
+  {% else %}attendi che un editor lo inserisca.{% endif %}</p>
+</div>
+{% endif %}
+
+{% endblock %}

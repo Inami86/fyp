@@ -1,0 +1,129 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <a href="{{ url_for('properties.list_properties') }}" style="font-size:13px;color:var(--muted)">← Immobili</a>
+    <h1 style="margin-top:6px">{% if prop %}Modifica immobile{% else %}Nuovo immobile{% endif %}</h1>
+  </div>
+</div>
+
+<div style="max-width:860px">
+  <form method="post" enctype="multipart/form-data" class="card card-body" style="padding:28px">
+
+    <div class="form-section">
+      <h3>Informazioni principali</h3>
+      <div class="form-grid form-2col">
+        <div class="field" style="grid-column:1/-1">
+          <label>Titolo annuncio</label>
+          <input name="title" placeholder="es. Appartamento trilocale in centro storico" required value="{{ prop.title if prop else '' }}">
+        </div>
+        <div class="field">
+          <label>Comune</label>
+          <select name="municipality_id" required>
+            {% for m in municipalities %}
+            <option value="{{ m.id }}" {% if prop and prop.municipality_id == m.id %}selected{% endif %}>{{ m.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label>Prezzo richiesto (€)</label>
+          <input type="number" name="price" step="1000" placeholder="es. 150000" value="{{ prop.price|int if prop and prop.price else '' }}">
+        </div>
+        <div class="field">
+          <label>Tipologia</label>
+          <select name="property_type">
+            {% for t in ['Appartamento','Villa','Terreno','Rustico','Altro'] %}
+            <option {% if prop and prop.property_type == t %}selected{% endif %}>{{ t }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Assegnato a</label>
+          <select name="assigned_to">
+            <option value="">— Nessuno —</option>
+            {% for m in members %}
+            <option value="{{ m.id }}"
+              {% if prop and prop.assigned_to == m.id %}selected{% endif %}>
+              {{ m.full_name }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label>Stato valutazione</label>
+          <select name="status">
+            {% for s in ['Da valutare','Interessante','Offerta fatta','Scartato'] %}
+            <option {% if prop and prop.status == s %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3>Posizione</h3>
+      <div class="form-grid">
+        <div class="field">
+          <label>Indirizzo</label>
+          <input name="address" id="property-address" placeholder="Via Roma 12, Cosenza" value="{{ prop.address if prop else '' }}">
+        </div>
+        <div class="coords-row">
+          <div class="field">
+            <label>Latitudine</label>
+            <input name="lat" id="property-lat" placeholder="39.2983" value="{{ prop.lat if prop else '' }}">
+          </div>
+          <div class="field">
+            <label>Longitudine</label>
+            <input name="lng" id="property-lng" placeholder="16.2537" value="{{ prop.lng if prop else '' }}">
+          </div>
+          <button class="btn btn-secondary" id="geocode-btn" type="button">🎯 Geocodifica</button>
+        </div>
+        <div id="mini-map" style="height:240px;border-radius:var(--r-md);overflow:hidden;border:1px solid var(--border)"></div>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h3>Foto</h3>
+      <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+        <label class="file-upload-btn">
+          📁 Scegli file
+          <input type="file" name="photos" accept="image/*" multiple style="display:none" id="photo-input">
+        </label>
+        <div style="flex:1;min-width:160px">
+          <input type="url" name="photo_url" placeholder="oppure URL immagine..." style="width:100%;padding:9px 12px;border:1.5px solid var(--border);border-radius:var(--r-sm);font-size:14px">
+        </div>
+      </div>
+      <p id="file-label" style="font-size:12px;color:var(--muted);margin-top:8px">JPG, PNG, WEBP — max 16MB per foto</p>
+    </div>
+
+    <div class="form-section">
+      <h3>Link e note</h3>
+      <div class="form-grid">
+        <div class="field">
+          <label>URL annuncio</label>
+          <input type="url" name="listing_url" placeholder="https://www.immobiliare.it/..." value="{{ prop.listing_url if prop else '' }}">
+        </div>
+        <div class="field">
+          <label>Note</label>
+          <textarea name="notes" rows="4" placeholder="Osservazioni, pro, contro...">{{ prop.notes if prop else '' }}</textarea>
+        </div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:8px">
+      {% if prop %}
+      <a class="btn btn-secondary" href="{{ url_for('properties.detail_property', prop_id=prop.id) }}">Annulla</a>
+      {% else %}
+      <a class="btn btn-secondary" href="{{ url_for('properties.list_properties') }}">Annulla</a>
+      {% endif %}
+      <button class="btn btn-primary" type="submit">💾 {% if prop %}Aggiorna{% else %}Salva{% endif %}</button>
+    </div>
+  </form>
+</div>
+<script>
+document.getElementById('photo-input')?.addEventListener('change', function() {
+  document.getElementById('file-label').textContent = `${this.files.length} file selezionati`;
+});
+</script>
+{% endblock %}

@@ -1,0 +1,283 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="page-header">
+  <div style="min-width:0">
+    <a href="{{ url_for('properties.list_properties') }}"
+       style="font-size:13px;color:var(--muted)">← Immobili</a>
+    <h1 style="margin-top:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+      {{ prop.title }}
+    </h1>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:6px;align-items:center">
+      <span class="badge badge-default">{{ prop.property_type }}</span>
+      <span class="badge badge-{{ prop.status | lower | replace(' ','-') }}">{{ prop.status }}</span>
+      {% if prop.assigned_to and prop.assigned_to in users_map %}
+      <span style="font-size:12px;color:var(--muted)">
+        👤 {{ users_map[prop.assigned_to].full_name }}
+      </span>
+      {% endif %}
+    </div>
+  </div>
+  {% if current_user.role in ['admin','editor'] %}
+  <div style="display:flex;gap:8px;flex-shrink:0">
+    <a href="{{ url_for('properties.edit_property', prop_id=prop.id) }}"
+       class="btn btn-secondary">✏️ Modifica</a>
+    <form method="post"
+          action="{{ url_for('properties.delete_property', prop_id=prop.id) }}"
+          onsubmit="return confirm('Eliminare questo immobile?')">
+      <button class="btn btn-ghost" style="color:var(--error)">🗑</button>
+    </form>
+  </div>
+  {% endif %}
+</div>
+
+<div class="layout-2col">
+
+  <!-- COLONNA PRINCIPALE -->
+  <div style="display:grid;gap:16px">
+
+    <!-- DETTAGLI -->
+    <div class="card card-body">
+      <h2 class="section-label" style="margin-bottom:14px">Dettagli</h2>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;font-size:14px">
+        {% if mun %}
+        <div><span style="color:var(--muted)">Comune</span><br><strong>{{ mun.name }}</strong></div>
+        {% endif %}
+        {% if prop.price %}
+        <div><span style="color:var(--muted)">Prezzo</span><br>
+          <strong style="font-size:18px;color:var(--primary)">
+            {{ '{:,.0f}'.format(prop.price).replace(',','.') }} €
+          </strong>
+        </div>
+        {% endif %}
+        {% if prop.address %}
+        <div style="grid-column:1/-1">
+          <span style="color:var(--muted)">Indirizzo</span><br>
+          <strong>{{ prop.address }}</strong>
+        </div>
+        {% endif %}
+        {% if prop.listing_url %}
+        <div style="grid-column:1/-1">
+          <span style="color:var(--muted)">Annuncio</span><br>
+          <a href="{{ prop.listing_url }}" target="_blank"
+             style="color:var(--primary);word-break:break-all">{{ prop.listing_url }}</a>
+        </div>
+        {% endif %}
+      </div>
+      {% if prop.notes %}
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border);
+                  font-size:14px;white-space:pre-line">{{ prop.notes }}</div>
+      {% endif %}
+    </div>
+
+    <!-- FOTO -->
+    {% if photos %}
+    <div class="card card-body">
+      <h2 class="section-label" style="margin-bottom:12px">📷 Foto ({{ photos|length }})</h2>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:8px">
+        {% for photo in photos %}
+        {% set src = photo.external_url if photo.external_url else '/uploads/' + photo.file_path %}
+        <img src="{{ src }}" alt="Foto immobile"
+             style="width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:var(--r-sm);cursor:pointer"
+             onclick="openLightbox('{{ src }}')">
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- CONTATTI COLLEGATI -->
+    <div class="card card-body" id="contacts">
+      <h2 class="section-label" style="margin-bottom:12px">👤 Contatti</h2>
+
+      {% if contacts %}
+      <div style="display:grid;gap:8px;margin-bottom:16px">
+        {% for contact, relation in contacts %}
+        <div style="display:flex;align-items:center;gap:12px;padding:8px 12px;
+             background:var(--surface-2);border-radius:var(--r-sm)">
+          <div style="flex:1;font-size:14px">
+            <a href="{{ url_for('contacts.detail_contact', contact_id=contact.id) }}"
+               style="font-weight:700;color:var(--text);text-decoration:none">{{ contact.name }}</a>
+            {% if contact.phone %}
+            <span style="color:var(--muted);font-size:12px"> · {{ contact.phone }}</span>
+            {% endif %}
+          </div>
+          <span class="badge badge-default" style="font-size:11px">{{ relation }}</span>
+          {% if current_user.role in ['admin','editor'] %}
+          <form method="post"
+                action="{{ url_for('properties.unlink_contact', prop_id=prop.id, contact_id=contact.id) }}"
+                style="margin:0">
+            <button type="submit" class="btn btn-sm btn-ghost"
+                    style="color:var(--danger);padding:2px 8px"
+                    onclick="return confirm('Scollegare questo contatto?')">✕</button>
+          </form>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p style="color:var(--muted);font-size:13px;margin-bottom:16px">Nessun contatto collegato.</p>
+      {% endif %}
+
+      {% if current_user.role in ['admin','editor'] and available_contacts %}
+      <form method="post"
+            action="{{ url_for('properties.link_contact', prop_id=prop.id) }}"
+            style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <select name="contact_id" class="form-select" style="flex:1;min-width:140px" required>
+          <option value="">— Seleziona contatto —</option>
+          {% for c in available_contacts %}
+          <option value="{{ c.id }}">{{ c.name }}{% if c.contact_type %} ({{ c.contact_type }}){% endif %}</option>
+          {% endfor %}
+        </select>
+        <select name="relation_type" class="form-select" style="width:130px">
+          {% for r in ['Agente','Proprietario','Riferimento','Altro'] %}
+          <option value="{{ r }}">{{ r }}</option>
+          {% endfor %}
+        </select>
+        <button type="submit" class="btn btn-sm btn-primary">+ Collega</button>
+      </form>
+      {% endif %}
+    </div>
+
+    <!-- COMMENTI -->
+    <div class="card card-body" id="comments">
+      <h2 class="section-label" style="margin-bottom:14px">
+        💬 Commenti ({{ comments|length }})
+      </h2>
+
+      {% if comments %}
+      <div class="comment-list">
+        {% for c in comments %}
+        {% set author = users_map.get(c.user_id) %}
+        <div class="comment-item">
+          <div class="comment-avatar">{{ author.full_name[0].upper() if author else '?' }}</div>
+          <div class="comment-bubble">
+            <div class="comment-meta">
+              <span class="comment-author">{{ author.full_name if author else 'Utente' }}</span>
+              <div style="display:flex;gap:6px;align-items:center">
+                <span class="comment-time">{{ c.created_at.strftime('%d/%m %H:%M') }}</span>
+                {% if c.user_id == current_user.id or current_user.role == 'admin' %}
+                <form method="post"
+                      action="{{ url_for('properties.delete_comment', prop_id=prop.id, comment_id=c.id) }}">
+                  <button class="btn btn-ghost"
+                          style="padding:1px 6px;font-size:11px;color:var(--muted)"
+                          title="Elimina">✕</button>
+                </form>
+                {% endif %}
+              </div>
+            </div>
+            <div class="comment-text">{{ c.text }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p style="font-size:13px;color:var(--muted);margin-bottom:14px">
+        Nessun commento ancora. Scrivi il primo!
+      </p>
+      {% endif %}
+
+      <form method="post"
+            action="{{ url_for('properties.add_comment', prop_id=prop.id) }}"
+            class="comment-form">
+        <textarea name="text" rows="2" required placeholder="Scrivi un commento…"
+                  class="comment-textarea"></textarea>
+        <button class="btn btn-primary" type="submit" style="flex-shrink:0">Invia</button>
+      </form>
+    </div>
+
+    <!-- STORICO MODIFICHE -->
+    {% if history %}
+    <div class="card card-body" id="history">
+      <h2 class="section-label" style="margin-bottom:12px">📋 Storico modifiche</h2>
+      <div class="history-list">
+        {% for h in history %}
+        {% set editor = users_map.get(h.user_id) %}
+        <div class="history-item">
+          <div>
+            <div class="history-field">{{ h.field_name }}</div>
+            <div class="history-who">
+              {{ h.changed_at.strftime('%d/%m %H:%M') }}<br>
+              {{ editor.full_name if editor else '—' }}
+            </div>
+          </div>
+          <div class="history-change">
+            <span style="color:var(--error);text-decoration:line-through;font-size:12px">
+              {{ h.old_value }}
+            </span>
+            <span style="color:var(--muted)">→</span>
+            <span style="color:var(--success);font-weight:600">{{ h.new_value }}</span>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+
+  <!-- SIDEBAR -->
+  <div style="display:grid;gap:12px">
+
+    <div class="card card-body">
+      <h2 class="section-label" style="margin-bottom:12px">👤 Assegnato a</h2>
+      {% if current_user.role in ['admin','editor'] %}
+      <form method="post"
+            action="{{ url_for('properties.assign_property', prop_id=prop.id) }}"
+            style="display:flex;gap:8px;flex-wrap:wrap">
+        <select name="assigned_to" class="form-select" style="flex:1">
+          <option value="">— Nessuno —</option>
+          {% for m in members %}
+          <option value="{{ m.id }}"
+            {% if prop.assigned_to == m.id %}selected{% endif %}>{{ m.full_name }}</option>
+          {% endfor %}
+        </select>
+        <button class="btn btn-secondary btn-sm" type="submit">Salva</button>
+      </form>
+      {% else %}
+      <p style="font-size:14px">
+        {% if prop.assigned_to and prop.assigned_to in users_map %}
+          {{ users_map[prop.assigned_to].full_name }}
+        {% else %}
+          <span style="color:var(--muted)">Non assegnato</span>
+        {% endif %}
+      </p>
+      {% endif %}
+    </div>
+
+    <div class="card card-body" style="font-size:13px">
+      <h2 class="section-label" style="margin-bottom:10px">Riepilogo</h2>
+      <div style="display:grid;gap:6px;color:var(--muted)">
+        <div>Stato: <strong style="color:var(--text)">{{ prop.status }}</strong></div>
+        <div>Tipo: <strong style="color:var(--text)">{{ prop.property_type }}</strong></div>
+        {% if prop.price %}
+        <div>Prezzo: <strong style="color:var(--primary)">
+          {{ '{:,.0f}'.format(prop.price).replace(',','.') }} €
+        </strong></div>
+        {% endif %}
+        <div>Commenti: <strong style="color:var(--text)">{{ comments|length }}</strong></div>
+        <div>Modifiche: <strong style="color:var(--text)">{{ history|length }}</strong></div>
+        {% if prop.created_at %}
+        <div>Aggiunto: <strong style="color:var(--text)">
+          {{ prop.created_at.strftime('%d/%m/%Y') }}
+        </strong></div>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- LIGHTBOX -->
+<div id="lightbox"
+     style="display:none;position:fixed;inset:0;background:oklch(0 0 0/0.85);
+            z-index:2000;align-items:center;justify-content:center;cursor:zoom-out"
+     onclick="this.style.display='none'">
+  <img id="lightbox-img" style="max-width:92vw;max-height:88vh;border-radius:var(--r-md)">
+</div>
+<script>
+function openLightbox(src) {
+  document.getElementById('lightbox-img').src = src;
+  document.getElementById('lightbox').style.display = 'flex';
+}
+</script>
+{% endblock %}

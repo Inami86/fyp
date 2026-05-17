@@ -1,0 +1,56 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <h1>🔍 Le tue ricerche</h1>
+  {% if current_user.role == 'admin' %}
+  <a href="{{ url_for('researches.new_research') }}" class="btn btn-primary">+ Nuova ricerca</a>
+  {% endif %}
+</div>
+
+{% if researches %}
+<div style="display:grid;gap:12px;max-width:680px">
+  {% for r in researches %}
+  {% set is_active = (active_research and active_research.id == r.id) %}
+  <div class="card card-body {{ 'research-card-active' if is_active else '' }}"
+       style="display:flex;align-items:center;gap:16px">
+    <div style="font-size:28px">🔍</div>
+    <div style="flex:1">
+      <div style="font-size:16px;font-weight:800">
+        {{ r.name }}
+        {% if is_active %}
+        <span class="badge badge-primary" style="margin-left:8px;font-size:11px">Attiva</span>
+        {% endif %}
+      </div>
+      <div style="font-size:13px;color:var(--muted);margin-top:2px">📍 {{ r.region }}</div>
+    </div>
+    <div style="display:flex;gap:8px;flex-shrink:0">
+      {% if not is_active %}
+      <a href="{{ url_for('main.switch_research', research_id=r.id) }}"
+         class="btn btn-secondary btn-sm">Attiva</a>
+      {% endif %}
+      {% if current_user.role == 'admin' %}
+      <form method="post"
+            action="{{ url_for('researches.delete_research', research_id=r.id) }}"
+            onsubmit="return confirm('Eliminare questa ricerca? I dati collegati verranno persi.')">
+        <button class="btn btn-ghost btn-sm" style="color:var(--error)">🗑</button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+{% else %}
+<div class="empty-state">
+  <div class="empty-icon">🔍</div>
+  <h3>Nessuna ricerca disponibile</h3>
+  {% if current_user.role == 'admin' %}
+  <a href="{{ url_for('researches.new_research') }}" class="btn btn-primary" style="margin-top:16px">
+    Crea la prima ricerca
+  </a>
+  {% else %}
+  <p>Contatta un amministratore per essere assegnato a una ricerca.</p>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}

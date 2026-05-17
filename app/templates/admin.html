@@ -1,0 +1,284 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <h1>⚙️ Pannello Admin</h1>
+</div>
+
+<!-- KPI SISTEMA -->
+<div class="kpi-grid" style="margin-bottom:28px">
+  {% for label,val,icon in [('Utenti',kpi.total_users,'👥'),('Ricerche',kpi.total_researches,'🔍'),
+                              ('Immobili',kpi.total_properties,'🏠'),('Contatti',kpi.total_contacts,'👤'),
+                              ('Log attività',kpi.total_logs,'📋')] %}
+  <div class="kpi-card">
+    <div class="kpi-icon">{{ icon }}</div>
+    <div class="kpi-value">{{ val }}</div>
+    <div class="kpi-label">{{ label }}</div>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- SEZIONE UTENTI -->
+<div class="card card-body" style="margin-bottom:20px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <h2 class="section-label">👥 Utenti</h2>
+    <button class="btn btn-primary btn-sm" onclick="openModal('modal-new-user')">
+      + Nuovo utente
+    </button>
+  </div>
+
+  <div style="overflow-x:auto">
+    <table class="users-table">
+      <thead>
+        <tr>
+          <th>Nome</th>
+          <th>Email</th>
+          <th>Ruolo</th>
+          <th>Azioni</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for u in users %}
+        <tr>
+          <td style="font-weight:600">
+            {{ u.full_name }}
+            {% if u.id == current_user.id %}
+            <span class="badge badge-primary" style="font-size:10px;margin-left:4px">Tu</span>
+            {% endif %}
+          </td>
+          <td style="color:var(--muted)">{{ u.email }}</td>
+          <td>
+            {% if u.id == current_user.id %}
+            <span class="badge badge-default">{{ u.role }}</span>
+            {% else %}
+            <form method="post"
+                  action="{{ url_for('admin.change_role', user_id=u.id) }}"
+                  style="display:inline-flex;gap:6px;align-items:center">
+              <select name="role" style="padding:4px 8px;border:1.5px solid var(--border);
+                      border-radius:var(--r-sm);font-size:12px;background:var(--surface-2)">
+                {% for r in ['admin','editor','viewer'] %}
+                <option {% if u.role == r %}selected{% endif %}>{{ r }}</option>
+                {% endfor %}
+              </select>
+              <button class="btn btn-ghost" style="padding:4px 8px;font-size:12px"
+                      title="Salva ruolo">✓</button>
+            </form>
+            {% endif %}
+          </td>
+          <td>
+            {% if u.id != current_user.id %}
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-secondary btn-sm"
+                      data-user-id="{{ u.id }}"
+                      data-full-name="{{ u.full_name | e }}"
+                      data-email="{{ u.email | e }}"
+                      data-role="{{ u.role }}"
+                      onclick="openEditUserFromBtn(this)">
+                ✏️
+              </button>
+              <form method="post"
+                    action="{{ url_for('admin.delete_user', user_id=u.id) }}"
+                    data-confirm="Eliminare {{ u.full_name | e }}? L'utente verrà rimosso da tutte le ricerche."
+                    onsubmit="return confirm(this.dataset.confirm)">
+                <button class="btn btn-ghost btn-sm" style="color:var(--error)" title="Elimina utente">
+                  🗑
+                </button>
+              </form>
+            </div>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- SEZIONE RICERCHE & MEMBRI -->
+<div class="card card-body" style="margin-bottom:20px">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+    <h2 class="section-label">🔍 Ricerche e membri</h2>
+    <a href="{{ url_for('researches.new_research') }}" class="btn btn-secondary btn-sm">
+      + Nuova ricerca
+    </a>
+  </div>
+
+  {% for r in researches %}
+  <div style="padding:14px;background:var(--surface-2);border-radius:var(--r-md);
+              margin-bottom:12px;border:1px solid var(--border)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div>
+        <span style="font-weight:800">{{ r.name }}</span>
+        <span class="badge badge-default" style="margin-left:8px;font-size:11px">
+          {{ r.region }}
+        </span>
+      </div>
+      <form method="post"
+            action="{{ url_for('researches.delete_research', research_id=r.id) }}"
+            onsubmit="return confirm('Eliminare la ricerca {{ r.name }}?')">
+        <button class="btn btn-ghost btn-sm" style="color:var(--error)">🗑 Elimina</button>
+      </form>
+    </div>
+
+    <!-- Membri attuali -->
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">
+      {% for u in users %}
+      {% if u.id in mem_map.get(r.id, []) %}
+      <span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;
+                   border-radius:99px;background:var(--primary-hl);color:var(--primary);
+                   font-size:12px;font-weight:600">
+        {{ u.full_name }}
+        <form method="post"
+              action="{{ url_for('admin.remove_user', research_id=r.id, user_id=u.id) }}"
+              style="display:inline">
+          <button style="background:none;border:none;cursor:pointer;font-size:11px;
+                         color:var(--primary);padding:0;margin-left:2px;line-height:1"
+                  title="Rimuovi dalla ricerca">✕</button>
+        </form>
+      </span>
+      {% endif %}
+      {% endfor %}
+    </div>
+
+    <!-- Aggiungi membro -->
+    <form method="post"
+          action="{{ url_for('admin.assign_user', research_id=r.id) }}"
+          style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <select name="user_id"
+              style="padding:6px 10px;border:1.5px solid var(--border);
+                     border-radius:var(--r-sm);font-size:13px;background:var(--surface)">
+        <option value="">— Aggiungi utente —</option>
+        {% for u in users %}
+        {% if u.id not in mem_map.get(r.id, []) %}
+        <option value="{{ u.id }}">{{ u.full_name }} ({{ u.role }})</option>
+        {% endif %}
+        {% endfor %}
+      </select>
+      <button class="btn btn-secondary btn-sm" type="submit">Aggiungi</button>
+    </form>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- LOG ATTIVITÀ GLOBALE -->
+<div class="card card-body">
+  <h2 class="section-label" style="margin-bottom:14px">📋 Ultimi log di sistema</h2>
+  {% if logs %}
+  <div style="font-size:13px;display:grid;gap:6px">
+    {% for log in logs %}
+    <div style="display:flex;gap:10px;align-items:baseline;padding:6px 0;
+                border-bottom:1px solid var(--border)">
+      <span style="color:var(--muted);flex-shrink:0;font-size:11px">
+        {{ log.timestamp.strftime('%d/%m %H:%M') }}
+      </span>
+      <span class="badge badge-default" style="font-size:11px;flex-shrink:0">
+        {{ log.action }}
+      </span>
+      <span>{{ log.detail or '—' }}</span>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p style="color:var(--muted);font-size:13px">Nessuna attività registrata.</p>
+  {% endif %}
+</div>
+
+<!-- MODAL NUOVO UTENTE -->
+<div id="modal-new-user" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3 style="margin:0">Nuovo utente</h3>
+      <button class="btn btn-ghost" onclick="closeModal('modal-new-user')" style="font-size:18px">✕</button>
+    </div>
+    <form method="post" action="{{ url_for('admin.new_user') }}">
+      <div class="field" style="margin-bottom:12px">
+        <label>Nome completo</label>
+        <input name="full_name" required placeholder="Mario Rossi">
+      </div>
+      <div class="field" style="margin-bottom:12px">
+        <label>Email</label>
+        <input type="email" name="email" required placeholder="mario@example.com">
+      </div>
+      <div class="field" style="margin-bottom:12px">
+        <label>Password iniziale</label>
+        <input type="password" name="password" required minlength="6" placeholder="min. 6 caratteri">
+      </div>
+      <div class="field" style="margin-bottom:20px">
+        <label>Ruolo</label>
+        <select name="role">
+          <option value="viewer">viewer</option>
+          <option value="editor">editor</option>
+          <option value="admin">admin</option>
+        </select>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-primary" type="submit">Crea utente</button>
+        <button class="btn btn-ghost" type="button"
+                onclick="closeModal('modal-new-user')">Annulla</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- MODAL MODIFICA UTENTE -->
+<div id="modal-edit-user" class="modal-overlay" style="display:none">
+  <div class="modal-box">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <h3 style="margin:0">Modifica utente</h3>
+      <button class="btn btn-ghost" onclick="closeModal('modal-edit-user')" style="font-size:18px">✕</button>
+    </div>
+    <form method="post" id="edit-user-form" action="">
+      <div class="field" style="margin-bottom:12px">
+        <label>Nome completo</label>
+        <input name="full_name" id="edit-full-name" required>
+      </div>
+      <div class="field" style="margin-bottom:12px">
+        <label>Email</label>
+        <input type="email" name="email" id="edit-email" required>
+      </div>
+      <div class="field" style="margin-bottom:12px">
+        <label>Ruolo</label>
+        <select name="role" id="edit-role">
+          <option value="viewer">viewer</option>
+          <option value="editor">editor</option>
+          <option value="admin">admin</option>
+        </select>
+      </div>
+      <div class="field" style="margin-bottom:20px">
+        <label>Nuova password
+          <span style="font-size:11px;color:var(--muted);font-weight:400">
+            (lascia vuoto per non cambiare)
+          </span>
+        </label>
+        <input type="password" name="new_password" placeholder="Lascia vuoto per non cambiare" minlength="6">
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn-primary" type="submit">Salva modifiche</button>
+        <button class="btn btn-ghost" type="button"
+                onclick="closeModal('modal-edit-user')">Annulla</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openModal(id) {
+  document.getElementById(id).style.display = 'flex';
+}
+function closeModal(id) {
+  document.getElementById(id).style.display = 'none';
+}
+function openEditUserFromBtn(btn) {
+  document.getElementById('edit-full-name').value = btn.dataset.fullName;
+  document.getElementById('edit-email').value     = btn.dataset.email;
+  document.getElementById('edit-role').value      = btn.dataset.role;
+  document.getElementById('edit-user-form').action =
+    `/admin/users/${btn.dataset.userId}/edit`;
+  openModal('modal-edit-user');
+}
+document.querySelectorAll('.modal-overlay').forEach(overlay => {
+  overlay.addEventListener('click', e => {
+    if (e.target === overlay) overlay.style.display = 'none';
+  });
+});
+</script>
+{% endblock %}

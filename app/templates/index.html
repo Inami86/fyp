@@ -1,0 +1,255 @@
+{% extends 'base.html' %}
+{% block content %}
+
+<!-- KPI CARDS -->
+<div class="kpi-grid" style="margin-bottom:20px">
+  <div class="kpi-card">
+    <div class="kpi-icon">🏠</div>
+    <div class="kpi-value">{{ kpi.total }}</div>
+    <div class="kpi-label">Immobili totali</div>
+  </div>
+  <div class="kpi-card kpi-warning">
+    <div class="kpi-icon">🕐</div>
+    <div class="kpi-value">{{ kpi.da_valutare }}</div>
+    <div class="kpi-label">Da valutare</div>
+  </div>
+  <div class="kpi-card kpi-success">
+    <div class="kpi-icon">⭐</div>
+    <div class="kpi-value">{{ kpi.interessanti }}</div>
+    <div class="kpi-label">Interessanti</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon">💶</div>
+    <div class="kpi-value">
+      {% if kpi.avg_price %}{{ '{:,.0f}'.format(kpi.avg_price).replace(',','.') }} €{% else %}—{% endif %}
+    </div>
+    <div class="kpi-label">Budget medio</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon">📍</div>
+    <div class="kpi-value">{{ kpi.comuni_coperti }}</div>
+    <div class="kpi-label">Comuni coperti</div>
+  </div>
+  <div class="kpi-card">
+    <div class="kpi-icon">👤</div>
+    <div class="kpi-value">{{ contacts|length }}</div>
+    <div class="kpi-label">Contatti</div>
+  </div>
+</div>
+
+<!-- MAPPA -->
+<div class="map-layout" style="margin-bottom:20px">
+  <div class="map-container">
+    <div id="map" data-map-page="1" style="width:100%;height:100%"></div>
+    <div class="map-legend">
+      <div class="legend-item"><span style="background:#3d7c28"></span>Esplorato</div>
+      <div class="legend-item"><span style="background:#b07800"></span>Parziale</div>
+      <div class="legend-item"><span style="background:#c5c2bc"></span>Non esplorato</div>
+      <div class="legend-item"><span style="background:#01696f;border-radius:50%"></span>Immobile</div>
+      <div class="legend-item"><span style="background:#b07800;border-radius:3px"></span>Contatto</div>
+    </div>
+  </div>
+  <aside class="map-sidebar">
+    <div id="municipality-placeholder" style="color:var(--muted);text-align:center;padding:40px 12px">
+      <div style="font-size:36px;margin-bottom:8px">🗺</div>
+      <p style="font-size:13px">Clicca su un comune per i dettagli</p>
+    </div>
+    <div id="municipality-content"></div>
+  </aside>
+</div>
+
+<!-- 3 GRAFICI -->
+<div class="chart-grid">
+
+  <div class="card card-body">
+    <h2 class="section-label" style="margin-bottom:14px">📊 Distribuzione stati</h2>
+    {% if kpi.total > 0 %}
+    <div style="max-width:200px;margin:0 auto">
+      <canvas id="chart-stati"></canvas>
+    </div>
+    <div style="display:grid;gap:5px;margin-top:14px;font-size:12px">
+      {% set labels = ['Da valutare','Interessante','Offerta fatta','Scartato'] %}
+      {% set values = [kpi.da_valutare, kpi.interessanti, kpi.offerta, kpi.scartati] %}
+      {% set clrs   = ['#b07800','#437a22','#01696f','#a12c7b'] %}
+      {% for i in range(4) %}
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <span style="display:flex;align-items:center;gap:6px">
+          <span style="width:10px;height:10px;border-radius:50%;background:{{ clrs[i] }};flex-shrink:0"></span>
+          {{ labels[i] }}
+        </span>
+        <strong>{{ values[i] }}</strong>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding:32px 0">
+      <p>Nessun immobile ancora</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="card card-body">
+    <h2 class="section-label" style="margin-bottom:14px">💶 Prezzo medio per comune</h2>
+    {% if chart_prezzi.labels %}
+    <div style="position:relative;height:200px">
+      <canvas id="chart-prezzi"></canvas>
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding:32px 0">
+      <p>Inserisci immobili con prezzo e comune</p>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="card card-body">
+    <h2 class="section-label" style="margin-bottom:14px">📈 Inserimenti nel tempo</h2>
+    {% if chart_inserimenti.labels %}
+    <div style="position:relative;height:200px">
+      <canvas id="chart-inserimenti"></canvas>
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding:32px 0">
+      <p>Inserisci almeno un immobile</p>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+
+<!-- FEED ATTIVITÀ + AZIONI RAPIDE -->
+<div class="layout-feed">
+
+  <div class="card card-body">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <h2 class="section-label">🕓 Attività recenti</h2>
+      <a href="{{ url_for('main.activity_log') }}"
+         style="font-size:12px;color:var(--primary);font-weight:600">Vedi tutto →</a>
+    </div>
+    {% if logs %}
+    {% set icons = {
+      'create_property':'🏠','edit_property':'✏️','delete_property':'🗑',
+      'create_contact':'👤','edit_contact':'✏️','delete_contact':'🗑','comment':'💬'
+    } %}
+    <div style="display:grid;gap:0">
+      {% for log in logs %}
+      {% set author = users_map.get(log.user_id) %}
+      <div style="display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--border)">
+        <span style="font-size:16px;flex-shrink:0;margin-top:1px">{{ icons.get(log.action,'📌') }}</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+            {{ log.detail }}
+          </div>
+          <div style="font-size:11px;color:var(--muted);margin-top:2px;display:flex;gap:8px">
+            {% if author %}<span>{{ author.full_name }}</span><span>·</span>{% endif %}
+            <span>{{ log.timestamp.strftime('%d/%m/%Y %H:%M') if log.timestamp else '' }}</span>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p style="color:var(--muted);font-size:13px;text-align:center;padding:24px 0">
+      Nessuna attività ancora.
+    </p>
+    {% endif %}
+  </div>
+
+  <div style="display:grid;gap:12px">
+    <div class="card card-body">
+      <h2 class="section-label" style="margin-bottom:12px">Azioni rapide</h2>
+      <div style="display:grid;gap:8px">
+        {% if current_user.role in ['admin','editor'] %}
+        <a class="btn btn-primary"   href="{{ url_for('properties.new_property') }}">🏠 Nuovo immobile</a>
+        <a class="btn btn-secondary" href="{{ url_for('contacts.new_contact') }}">👤 Nuovo contatto</a>
+        {% endif %}
+        <a class="btn btn-secondary" href="{{ url_for('properties.list_properties') }}">📋 Lista immobili</a>
+        <a class="btn btn-ghost"     href="{{ url_for('main.export_properties_csv') }}">⬇ Esporta CSV</a>
+      </div>
+    </div>
+    <div class="card card-body" style="font-size:13px">
+      <div class="section-label" style="margin-bottom:8px">Ricerca attiva</div>
+      <div style="font-weight:700;font-size:15px">{{ research.name }}</div>
+      <div style="color:var(--muted);font-size:12px;margin-top:3px">{{ research.region }}</div>
+      <div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border);
+                  display:grid;gap:4px;font-size:12px;color:var(--muted)">
+        <span>{{ kpi.total }} immobili · {{ kpi.comuni_coperti }} comuni</span>
+        <span>{{ kpi.muns_explored }} / {{ kpi.total_muns }} comuni esplorati</span>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+const cv = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+
+{% if kpi.total > 0 %}
+new Chart(document.getElementById('chart-stati'), {
+  type: 'doughnut',
+  data: {
+    labels:   {{ chart_stati.labels | tojson }},
+    datasets: [{ data: {{ chart_stati.data | tojson }},
+      backgroundColor: {{ chart_stati.colors | tojson }},
+      borderWidth: 2, borderColor: '#fff'
+    }]
+  },
+  options: { plugins: { legend: { display: false } }, cutout: '68%' }
+});
+{% endif %}
+
+{% if chart_prezzi.labels %}
+new Chart(document.getElementById('chart-prezzi'), {
+  type: 'bar',
+  data: {
+    labels:   {{ chart_prezzi.labels | tojson }},
+    datasets: [{ label: '€ medio',
+      data:            {{ chart_prezzi.data | tojson }},
+      backgroundColor: 'oklch(0.48 0.12 192 / 0.75)',
+      borderColor:     'oklch(0.48 0.12 192)',
+      borderWidth: 1, borderRadius: 4
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { font: { size: 10 }, maxRotation: 35 }, grid: { display: false } },
+      y: { ticks: { font: { size: 10 }, callback: v => v >= 1000 ? (v/1000).toFixed(0)+'k' : v } }
+    }
+  }
+});
+{% endif %}
+
+{% if chart_inserimenti.labels %}
+const rawLabels = {{ chart_inserimenti.labels | tojson }};
+const mesi = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
+const fmtLabels = rawLabels.map(s => {
+  if (!s) return s;
+  const [y, m] = s.split('-');
+  return `${mesi[parseInt(m,10)-1]} '${y.slice(2)}`;
+});
+new Chart(document.getElementById('chart-inserimenti'), {
+  type: 'line',
+  data: {
+    labels: fmtLabels,
+    datasets: [{ label: 'Immobili inseriti',
+      data:            {{ chart_inserimenti.data | tojson }},
+      borderColor:     '#437a22',
+      backgroundColor: 'oklch(0.48 0.14 142 / 0.12)',
+      borderWidth: 2, pointRadius: 4, tension: 0.35, fill: true
+    }]
+  },
+  options: {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { display: false } },
+    scales: {
+      x: { ticks: { font: { size: 10 } }, grid: { display: false } },
+      y: { ticks: { font: { size: 10 }, stepSize: 1, callback: v => Number.isInteger(v) ? v : '' } }
+    }
+  }
+});
+{% endif %}
+</script>
+
+{% endblock %}

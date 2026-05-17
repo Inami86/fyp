@@ -1,0 +1,141 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <div>
+    <a href="{{ url_for('contacts.list_contacts') }}"
+       style="font-size:13px;color:var(--muted)">← Contatti</a>
+    <h1 style="margin-top:6px">
+      {% if contact %}Modifica contatto{% else %}Nuovo contatto{% endif %}
+    </h1>
+  </div>
+</div>
+
+<div style="max-width:660px">
+  <form method="post" class="card card-body" style="padding:28px">
+
+    <!-- SEZIONE 1: DATI PRINCIPALI -->
+    <div class="form-section">
+      <h3>Dati contatto</h3>
+      <div class="form-grid form-2col">
+
+        <div class="field" style="grid-column:1/-1">
+          <label>Nome / Ragione sociale <span style="color:var(--error)">*</span></label>
+          <input name="name" required
+                 placeholder="es. Mario Rossi oppure Agenzia Centro Casa"
+                 value="{{ contact.name if contact else '' }}">
+        </div>
+
+        <div class="field">
+          <label>Tipo contatto</label>
+          <select name="contact_type">
+            {% for t in ['Agente','Agenzia','Proprietario','Geometra','Notaio','Altro'] %}
+            <option {% if contact and contact.contact_type == t %}selected{% endif %}>{{ t }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="field">
+          <label>Agenzia / Studio</label>
+          <input name="agency" placeholder="es. Tecnocasa Cosenza"
+                 value="{{ contact.agency if contact else '' }}">
+          <span class="field-hint">Lascia vuoto se privato</span>
+        </div>
+
+        <div class="field">
+          <label>Telefono</label>
+          <input name="phone" type="tel" placeholder="+39 0984 000000"
+                 value="{{ contact.phone if contact else '' }}">
+        </div>
+
+        <div class="field">
+          <label>Email</label>
+          <input name="email" type="email" placeholder="contatto@email.com"
+                 value="{{ contact.email if contact else '' }}">
+        </div>
+
+      </div>
+    </div>
+
+    <!-- SEZIONE 2: POSIZIONE -->
+    <div class="form-section">
+      <h3>Sede / Indirizzo</h3>
+      <div class="form-grid form-2col">
+
+        <div class="field">
+          <label>Città / Comune</label>
+          <input name="city" placeholder="es. Cosenza"
+                 value="{{ contact.city if contact else '' }}">
+        </div>
+
+        <div class="field">
+          <label>Indirizzo</label>
+          <input name="address" placeholder="es. Corso Mazzini 10"
+                 value="{{ contact.address if contact else '' }}">
+        </div>
+
+        <div class="field">
+          <label>Latitudine</label>
+          <input name="lat" type="number" step="any" placeholder="39.2983"
+                 value="{{ contact.lat if contact else '' }}">
+        </div>
+
+        <div class="field">
+          <label>Longitudine</label>
+          <input name="lng" type="number" step="any" placeholder="16.2537"
+                 value="{{ contact.lng if contact else '' }}">
+        </div>
+
+      </div>
+    </div>
+
+    <!-- SEZIONE 3: NOTE -->
+    <div class="form-section">
+      <h3>Note</h3>
+      <div class="field">
+        <textarea name="notes" rows="4"
+                  placeholder="Specializzazioni, impressioni, disponibilità...">{{ contact.notes if contact else '' }}</textarea>
+      </div>
+    </div>
+
+    <!-- SEZIONE 4: COLLEGA IMMOBILE (solo creazione) -->
+    {% if not contact and properties %}
+    <div class="form-section">
+      <h3>Collega a un immobile <span style="font-weight:400;color:var(--muted);font-size:13px">(opzionale)</span></h3>
+      <div class="form-grid form-2col">
+        <div class="field">
+          <label>Immobile</label>
+          <select name="property_id">
+            <option value="">— Nessuno —</option>
+            {% for p in properties %}
+            <option value="{{ p.id }}">{{ p.title }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label>Tipo relazione</label>
+          <select name="relation_type">
+            {% for r in relation_types %}
+            <option value="{{ r }}">{{ r }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div style="display:flex;gap:12px;justify-content:flex-end;margin-top:8px">
+      {% if contact %}
+      <a class="btn btn-secondary"
+         href="{{ url_for('contacts.detail_contact', contact_id=contact.id) }}">Annulla</a>
+      {% else %}
+      <a class="btn btn-secondary"
+         href="{{ url_for('contacts.list_contacts') }}">Annulla</a>
+      {% endif %}
+      <button class="btn btn-primary" type="submit">
+        💾 {% if contact %}Aggiorna{% else %}Salva{% endif %} contatto
+      </button>
+    </div>
+
+  </form>
+</div>
+{% endblock %}

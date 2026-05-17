@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="page-header">
+  <h1>{{ 'Modifica ricerca' if research else 'Nuova ricerca' }}</h1>
+</div>
+<div style="max-width:520px">
+  <div class="card card-body">
+    <form method="post">
+
+      <div class="field" style="margin-bottom:16px">
+        <label>Nome ricerca</label>
+        <input name="name" required placeholder="es. Ricerca casa al mare"
+               value="{{ research.name if research else '' }}">
+        <span class="field-hint">Un nome descrittivo per questa ricerca</span>
+      </div>
+
+      <div class="field" style="margin-bottom:24px">
+        <label>Regione</label>
+        <select name="region" required {% if research %}disabled{% endif %}>
+          <option value="">— Seleziona regione —</option>
+          {% for region in regions %}
+          <option value="{{ region }}"
+            {% if research and research.region == region %}selected{% endif %}>
+            {{ region }}
+          </option>
+          {% endfor %}
+        </select>
+        <span class="field-hint">
+          I comuni della regione verranno caricati automaticamente
+          {% if research %}(non modificabile dopo la creazione){% endif %}
+        </span>
+      </div>
+
+      <div style="display:flex;gap:10px">
+        <button type="submit" class="btn btn-primary">
+          {{ 'Salva modifiche' if research else 'Crea ricerca' }}
+        </button>
+        <a href="{{ url_for('researches.list_researches') }}" class="btn btn-ghost">Annulla</a>
+      </div>
+
+    </form>
+  </div>
+
+  <div class="card card-body" style="margin-top:12px;font-size:13px;color:var(--muted)">
+    <strong>ℹ️ Come funziona</strong><br>
+    Scegliendo una regione, FyP carica automaticamente tutti i comuni di quella regione
+    nella mappa. Puoi avere più ricerche su regioni diverse e passare da una all'altra
+    dalla pagina Ricerche o dal menu 👤 Profilo.
+  </div>
+</div>
+{% endblock %}

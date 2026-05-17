@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#01696f">
+  <title>FyP — Accedi</title>
+  <link rel="icon" type="image/jpeg" href="/static/images/fyp-logo.jpg">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <style>
+    body {
+      min-height: 100dvh;
+      display: grid;
+      place-items: center;
+      background: var(--bg);
+    }
+
+    .login-wrap {
+      width: 100%;
+      max-width: 400px;
+      padding: var(--space-6);
+      display: grid;
+      gap: var(--space-4);
+    }
+
+    /* ── Card ── */
+    .login-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r-xl);
+      box-shadow: var(--shadow-lg);
+      overflow: hidden;
+    }
+
+    /* ── Header colorato ── */
+    .login-header {
+      background: var(--primary);
+      padding: var(--space-8) var(--space-8) var(--space-6);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-3);
+      text-align: center;
+    }
+
+    .login-header img {
+      width: 72px;
+      height: 72px;
+      object-fit: contain;
+      border-radius: var(--r-md);
+      background: rgba(255,255,255,.15);
+      padding: 6px;
+    }
+
+    .login-header .app-name {
+      font-size: var(--text-xl);
+      font-weight: 900;
+      color: #fff;
+      letter-spacing: -.03em;
+    }
+
+    .login-header .app-sub {
+      font-size: 13px;
+      color: rgba(255,255,255,.75);
+      font-weight: 500;
+    }
+
+    /* ── Body form ── */
+    .login-body {
+      padding: var(--space-7) var(--space-8);
+      display: grid;
+      gap: var(--space-4);
+    }
+
+    .login-field {
+      display: grid;
+      gap: var(--space-2);
+    }
+
+    .login-field label {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    .login-field input {
+      padding: 11px 14px;
+      border: 1.5px solid var(--border);
+      border-radius: var(--r-md);
+      font-size: 15px;
+      background: var(--surface-2);
+      width: 100%;
+      outline: none;
+      transition: border-color .15s, background .15s;
+    }
+
+    .login-field input:focus {
+      border-color: var(--primary);
+      background: #fff;
+    }
+
+    .login-btn {
+      width: 100%;
+      padding: 13px;
+      border-radius: var(--r-md);
+      background: var(--primary);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 800;
+      border: none;
+      cursor: pointer;
+      transition: background .15s, transform .1s;
+      margin-top: var(--space-1);
+    }
+
+    .login-btn:hover  { background: var(--primary-dark); }
+    .login-btn:active { transform: scale(.98); }
+
+    /* ── Footer ── */
+    .login-footer {
+      text-align: center;
+      font-size: 12px;
+      color: var(--muted);
+    }
+
+    .version-badge {
+      display: inline-block;
+      background: var(--primary-hl);
+      color: var(--primary);
+      padding: 3px 10px;
+      border-radius: var(--r-f);
+      font-weight: 700;
+      font-size: 12px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="login-wrap">
+  <div class="login-card">
+
+    <div class="login-header">
+      <img src="/static/images/fyp-logo.jpg" alt="FyP Logo">
+      <div class="app-name">Find Your Place</div>
+      <div class="app-sub">Il tuo assistente per la ricerca immobiliare</div>
+    </div>
+
+    <div class="login-body">
+
+      {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        {% for category, message in messages %}
+        <div class="flash flash-{{ category }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+      {% endwith %}
+
+      <form method="post">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+        <div class="login-field">
+          <label for="email">Email</label>
+          <input id="email" type="email" name="email"
+                 placeholder="la-tua@email.com" autofocus required>
+        </div>
+
+        <div class="login-field">
+          <label for="password">Password</label>
+          <input id="password" type="password" name="password"
+                 placeholder="••••••••" required>
+        </div>
+
+        <button class="login-btn" type="submit">Accedi →</button>
+      </form>
+
+    </div>
+  </div>
+
+  <div class="login-footer">
+    <span class="version-badge">v0.2.0</span>
+    &nbsp; FyP — Find Your Place &nbsp;·&nbsp; Tutti i diritti riservati
+  </div>
+</div>
+
+</body>
+</html>
