@@ -31,6 +31,12 @@ class ProductionConfig(Config):
     DEBUG = False
     _db_url = os.environ.get('DATABASE_URL', '')
     SQLALCHEMY_DATABASE_URI = _db_url.replace('postgres://', 'postgresql://', 1)
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_size': 5,
+        'pool_recycle': 300,
+        'pool_pre_ping': True,
+        'connect_args': {'sslmode': 'prefer'}
+    }
     SECRET_KEY = os.environ.get('SECRET_KEY', '')
 
 
