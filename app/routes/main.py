@@ -1,14 +1,15 @@
 import json, csv, io
 from datetime import datetime
 from flask import (Blueprint, render_template, redirect, url_for,
-                   session, jsonify, request, Response)
+                   session, jsonify, request, Response, send_file,
+                   current_app, make_response)
 from flask_login import login_required, current_user
-from sqlalchemy import func, extract, cast, String
 from app.models import (Research, ResearchUser, Municipality, Property,
                          Contact, ActivityLog, User)
 from app import db
 from pathlib import Path
 from app.utils import region_to_slug
+from app.services.dashboard import build_dashboard_data
 
 main_bp  = Blueprint('main', __name__)
 DATA_DIR = Path(__file__).resolve().parents[1] / 'data'
@@ -31,77 +32,111 @@ def index():
     if not research:
         return redirect(url_for('researches.list_researches'))
 
-    rid   = research.id
-    props = Property.query.filter_by(research_id=rid).all()
-    prezzi = [p.price for p in props if p.price]
-    muns   = Municipality.query.filter_by(region=research.region).all()
+    muns = Municipality.query.filter_by(region=research.region).all()
+    data = build_dashboard_data(research.id)
 
-    # Comuni con almeno un immobile inserito
-    mun_ids_con_props = {p.municipality_id for p in props if p.municipality_id}
+    # KPI specifici della dashboard che dipendono da muns (non inclusi nell'helper)
+    data['kpi']['muns_explored'] = sum(1 for m in muns if m.research_status == 'explored')
+    data['kpi']['total_muns']    = len(muns)
 
-    kpi = dict(
-        total          = len(props),
-        interessanti   = sum(1 for p in props if p.status == 'Interessante'),
-        da_valutare    = sum(1 for p in props if p.status == 'Da valutare'),
-        offerta        = sum(1 for p in props if p.status == 'Offerta fatta'),
-        scartati       = sum(1 for p in props if p.status == 'Scartato'),
-        avg_price      = int(sum(prezzi) / len(prezzi)) if prezzi else None,
-        muns_explored  = sum(1 for m in muns if m.research_status == 'explored'),
-        total_muns     = len(muns),
-        comuni_coperti = len(mun_ids_con_props),
-    )
-
-    # ── Grafico 1: donut stati ────────────────────────────────────────────
-    chart_stati = {
-        'labels': ['Da valutare', 'Interessante', 'Offerta fatta', 'Scartato'],
-        'data':   [kpi['da_valutare'], kpi['interessanti'], kpi['offerta'], kpi['scartati']],
-        'colors': ['#b07800', '#437a22', '#01696f', '#a12c7b'],
-    }
-
-    # ── Grafico 2: barre — prezzo medio per comune ────────────────────────
-    price_by_mun = (db.session.query(Municipality.name, func.avg(Property.price))
-                    .join(Property, Property.municipality_id == Municipality.id)
-                    .filter(Property.research_id == rid, Property.price.isnot(None))
-                    .group_by(Municipality.name)
-                    .order_by(func.avg(Property.price).desc())
-                    .limit(10).all())
-    chart_prezzi = {
-        'labels': [r[0] for r in price_by_mun],
-        'data':   [round(r[1]) for r in price_by_mun],
-    }
-
-    # ── Grafico 3: linea — inserimenti nel tempo (per mese) ───────────────
-    month_expr = func.concat(
-        cast(extract('year', Property.created_at), String),
-        '-',
-        func.lpad(cast(extract('month', Property.created_at), String), 2, '0')
-    ).label('month')
-    monthly_raw = (db.session.query(month_expr, func.count(Property.id))
-                   .filter(Property.research_id == rid,
-                           Property.created_at.isnot(None))
-                   .group_by('month')
-                   .order_by('month').all())
-    chart_inserimenti = {
-        'labels': [r[0] for r in monthly_raw],  # '2026-04'
-        'data':   [r[1] for r in monthly_raw],
-    }
-
-    # ── Feed attività (20 eventi) ─────────────────────────────────────────
-    logs = (ActivityLog.query.filter_by(research_id=rid)
+    logs = (ActivityLog.query.filter_by(research_id=research.id)
             .order_by(ActivityLog.timestamp.desc()).limit(20).all())
     user_ids  = {l.user_id for l in logs if l.user_id}
     users_map = {u.id: u for u in User.query.filter(User.id.in_(user_ids)).all()}
 
-    contacts = Contact.query.filter_by(research_id=rid).all()
+    contacts = Contact.query.filter_by(research_id=research.id).all()
 
     return render_template('index.html',
         research=research, municipalities=muns,
-        properties=props, contacts=contacts,
+        properties=data['props'], contacts=contacts,
         logs=logs, users_map=users_map,
+        kpi=data['kpi'],
+        chart_stati=data['chart_stati'],
+        chart_prezzi=data['chart_prezzi'],
+        chart_inserimenti=data['chart_inserimenti'])
+
+
+@main_bp.route('/research/export-pdf')
+@login_required
+def export_research_pdf():
+    import base64
+    import matplotlib
+    matplotlib.use('Agg')
+    import matplotlib.pyplot as plt
+    from weasyprint import HTML
+    from io import BytesIO
+
+    research = get_active_research()
+    if not research:
+        return redirect(url_for('researches.list_researches'))
+
+    muns = Municipality.query.filter_by(region=research.region).all()
+    data = build_dashboard_data(research.id)
+    kpi  = data['kpi']
+    kpi['total_muns']    = len(muns)
+    kpi['muns_explored'] = sum(1 for m in muns if m.research_status == 'explored')
+
+    def fig_to_b64(fig):
+        buf = BytesIO()
+        fig.savefig(buf, format='png', dpi=120, bbox_inches='tight')
+        buf.seek(0)
+        plt.close(fig)
+        return base64.b64encode(buf.read()).decode()
+
+    # Grafico 1: donut stati
+    chart_stati_img = None
+    stati  = data['chart_stati']
+    nonzero = [(l, v, c) for l, v, c in zip(stati['labels'], stati['data'], stati['colors']) if v > 0]
+    if nonzero:
+        fig, ax = plt.subplots(figsize=(4, 3.2))
+        ax.pie([x[1] for x in nonzero], labels=[x[0] for x in nonzero],
+               colors=[x[2] for x in nonzero], autopct='%1.0f%%',
+               startangle=140, textprops={'fontsize': 8})
+        chart_stati_img = fig_to_b64(fig)
+
+    # Grafico 2: barre prezzo per comune
+    chart_prezzi_img = None
+    if data['chart_prezzi']['labels']:
+        fig, ax = plt.subplots(figsize=(5, 3.2))
+        bars = ax.barh(data['chart_prezzi']['labels'], data['chart_prezzi']['data'], color='#2D6A4F')
+        ax.set_xlabel('€', fontsize=8)
+        ax.tick_params(axis='both', labelsize=7)
+        ax.invert_yaxis()
+        chart_prezzi_img = fig_to_b64(fig)
+
+    # Grafico 3: linea inserimenti
+    chart_inserimenti_img = None
+    if data['chart_inserimenti']['labels']:
+        fig, ax = plt.subplots(figsize=(7, 2.8))
+        ax.plot(data['chart_inserimenti']['labels'], data['chart_inserimenti']['data'],
+                marker='o', color='#52B788', linewidth=2, markersize=5)
+        ax.fill_between(data['chart_inserimenti']['labels'], data['chart_inserimenti']['data'],
+                         alpha=0.15, color='#52B788')
+        ax.tick_params(axis='x', rotation=45, labelsize=7)
+        ax.tick_params(axis='y', labelsize=7)
+        plt.tight_layout()
+        chart_inserimenti_img = fig_to_b64(fig)
+
+    props_sorted = sorted(data['props'], key=lambda p: p.created_at or datetime.min, reverse=True)[:50]
+
+    html_str = render_template('report_research.html',
+        research=research,
+        author=current_user.full_name,
+        now=datetime.utcnow().strftime('%d/%m/%Y %H:%M'),
         kpi=kpi,
-        chart_stati=chart_stati,
-        chart_prezzi=chart_prezzi,
-        chart_inserimenti=chart_inserimenti)
+        props=props_sorted,
+        price_by_mun=data['price_by_mun'],
+        chart_stati_img=chart_stati_img,
+        chart_prezzi_img=chart_prezzi_img,
+        chart_inserimenti_img=chart_inserimenti_img,
+    )
+
+    from flask import make_response
+    pdf = HTML(string=html_str, base_url=current_app.root_path).write_pdf()
+    response = make_response(pdf)
+    response.headers['Content-Type']        = 'application/pdf'
+    response.headers['Content-Disposition'] = f'inline; filename=report-{research.id}.pdf'
+    return response
 
 
 @main_bp.route('/activity')
@@ -122,6 +157,12 @@ def activity_log():
                            users_map=users_map)
 
 
+def _csv_safe(value):
+    """Previene CSV injection prefissando con apostrofo celle che iniziano con =+-@."""
+    s = str(value)
+    return "'" + s if s and s[0] in ('=', '+', '-', '@') else s
+
+
 @main_bp.route('/properties/export-csv')
 @login_required
 def export_properties_csv():
@@ -129,25 +170,123 @@ def export_properties_csv():
     research = get_active_research()
     props    = Property.query.filter_by(research_id=research.id if research else -1).all()
     output   = io.StringIO()
-    w        = csv.writer(output)
-    w.writerow(['ID','Titolo','Comune','Tipologia','Stato','Prezzo','Indirizzo',
-                'URL annuncio','Foto','Contatti','Note','Data aggiunta'])
+    output.write('﻿')  # BOM UTF-8 per Excel italiano
+    w = csv.writer(output)
+    w.writerow(['ID', 'Titolo', 'Comune', 'Tipologia', 'Stato', 'Prezzo', 'Indirizzo',
+                'URL annuncio', 'Foto', 'Contatti', 'Note', 'Data aggiunta'])
     for p in props:
-        mun       = Municipality.query.get(p.municipality_id)
-        photos    = PropertyPhoto.query.filter_by(property_id=p.id).all()
+        mun        = Municipality.query.get(p.municipality_id)
+        photos     = PropertyPhoto.query.filter_by(property_id=p.id).all()
         photo_urls = ' | '.join(
             ph.external_url if ph.external_url else f'/uploads/{ph.file_path}' for ph in photos)
         links    = PC.query.filter_by(property_id=p.id).all()
         cont_ids = [l.contact_id for l in links]
         contacts = Contact.query.filter(Contact.id.in_(cont_ids)).all() if cont_ids else []
-        w.writerow([p.id, p.title, mun.name if mun else '', p.property_type,
-                    p.status, p.price or '', p.address or '', p.listing_url or '',
-                    photo_urls, ' | '.join(c.name for c in contacts),
-                    (p.notes or '').replace('\n', ' '),
-                    p.created_at.strftime('%d/%m/%Y %H:%M') if p.created_at else ''])
-    return Response(output.getvalue(), mimetype='text/csv',
+        w.writerow([
+            p.id,
+            _csv_safe(p.title or ''),
+            mun.name if mun else '',
+            p.property_type or '',
+            p.status or '',
+            p.price or '',
+            _csv_safe(p.address or ''),
+            p.listing_url or '',
+            photo_urls,
+            ' | '.join(c.name for c in contacts),
+            _csv_safe((p.notes or '').replace('\n', ' ')),
+            p.created_at.strftime('%d/%m/%Y %H:%M') if p.created_at else '',
+        ])
+    return Response(output.getvalue(), mimetype='text/csv; charset=utf-8',
         headers={'Content-Disposition':
             f'attachment; filename=immobili-{research.name if research else "fyp"}.csv'})
+
+
+@main_bp.route('/properties/export-xlsx')
+@login_required
+def export_properties_xlsx():
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+    from app.models import PropertyPhoto, PropertyContact as PC
+
+    research = get_active_research()
+    rid      = research.id if research else -1
+    data     = build_dashboard_data(rid)
+    props    = data['props']
+    kpi      = data['kpi']
+
+    wb = openpyxl.Workbook()
+
+    # ── Foglio 1: Immobili ────────────────────────────────────────────────
+    ws1 = wb.active
+    ws1.title = 'Immobili'
+    header_font = Font(bold=True, color='FFFFFF')
+    header_fill = PatternFill('solid', fgColor='2D6A4F')
+    headers = ['ID', 'Titolo', 'Comune', 'Tipologia', 'Stato', 'Prezzo (€)',
+               'Indirizzo', 'URL annuncio', 'Contatti', 'Note', 'Data aggiunta']
+    ws1.append(headers)
+    for cell in ws1[1]:
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center')
+    ws1.freeze_panes = 'A2'
+    ws1.auto_filter.ref = ws1.dimensions
+
+    for p in props:
+        mun      = Municipality.query.get(p.municipality_id)
+        links    = PC.query.filter_by(property_id=p.id).all()
+        cont_ids = [l.contact_id for l in links]
+        contacts = Contact.query.filter(Contact.id.in_(cont_ids)).all() if cont_ids else []
+        ws1.append([
+            p.id,
+            p.title or '',
+            mun.name if mun else '',
+            p.property_type or '',
+            p.status or '',
+            p.price or '',
+            p.address or '',
+            p.listing_url or '',
+            ' | '.join(c.name for c in contacts),
+            (p.notes or '').replace('\n', ' '),
+            p.created_at.strftime('%d/%m/%Y %H:%M') if p.created_at else '',
+        ])
+    for col in ws1.columns:
+        ws1.column_dimensions[col[0].column_letter].width = max(
+            len(str(cell.value or '')) for cell in col) + 4
+
+    # ── Foglio 2: KPI ─────────────────────────────────────────────────────
+    ws2 = wb.create_sheet('KPI')
+    ws2.column_dimensions['A'].width = 28
+    ws2.column_dimensions['B'].width = 18
+    kpi_rows = [
+        ('Totale immobili',       kpi['total']),
+        ('Da valutare',           kpi['da_valutare']),
+        ('Interessanti',          kpi['interessanti']),
+        ('Offerta fatta',         kpi['offerta']),
+        ('Scartati',              kpi['scartati']),
+        ('Prezzo medio (€)',       kpi['avg_price'] or 'N/D'),
+        ('Comuni con immobili',   kpi['comuni_coperti']),
+    ]
+    ws2.append(['Indicatore', 'Valore'])
+    for cell in ws2[1]:
+        cell.font = Font(bold=True)
+    for row in kpi_rows:
+        ws2.append(list(row))
+
+    # ── Foglio 3: Per Comune ──────────────────────────────────────────────
+    ws3 = wb.create_sheet('Per Comune')
+    ws3.append(['Comune', 'Prezzo medio (€)'])
+    for cell in ws3[1]:
+        cell.font = Font(bold=True)
+    for name, avg in data['price_by_mun']:
+        ws3.append([name, round(avg)])
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    fname = f"immobili-{research.name if research else 'fyp'}.xlsx"
+    return send_file(buf,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True, download_name=fname)
 
 
 @main_bp.route('/api/map-data')

@@ -1,10 +1,10 @@
 import os
 from datetime import datetime
 from flask import (Blueprint, render_template, request, redirect,
-                   url_for, flash, session, current_app)
+                   url_for, flash, session, current_app, make_response)
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
-from app import db
+from app import db, limiter
 from app.models import (Property, PropertyPhoto, PropertyContact, Contact,
                          Research, ActivityLog,
                          Comment, PropertyHistory, Notification, User)
@@ -101,6 +101,7 @@ def detail_property(prop_id):
 @properties_bp.route('/new', methods=['GET', 'POST'])
 @login_required
 @editor_required
+@limiter.limit("60 per minute", methods=["POST"])
 def new_property():
     research_id = session.get('active_research_id')
     research    = Research.query.get(research_id) if research_id else None
@@ -189,6 +190,7 @@ def edit_property(prop_id):
 @properties_bp.route('/<int:prop_id>/delete', methods=['POST'])
 @login_required
 @editor_required
+@limiter.limit("30 per minute")
 def delete_property(prop_id):
     prop = Property.query.get_or_404(prop_id)
     research_id, title = prop.research_id, prop.title
@@ -261,6 +263,51 @@ def unlink_contact(prop_id, contact_id):
         property_id=prop_id, contact_id=contact_id).delete()
     db.session.commit()
     return redirect(url_for('properties.detail_property', prop_id=prop_id) + '#contacts')
+
+@properties_bp.route('/<int:prop_id>/pdf')
+@login_required
+def property_pdf(prop_id):
+    from weasyprint import HTML
+    prop    = Property.query.get_or_404(prop_id)
+    mun     = prop.municipality
+    research = Research.query.get(prop.research_id)
+
+    # Prima foto disponibile
+    photo_url = None
+    if prop.photos:
+        ph = prop.photos[0]
+        if ph.external_url:
+            photo_url = ph.external_url
+        elif ph.file_path:
+            upload_folder = current_app.config.get('UPLOAD_FOLDER', '')
+            photo_path = os.path.join(upload_folder, ph.file_path)
+            if os.path.exists(photo_path):
+                photo_url = f'file:///{photo_path.replace(os.sep, "/")}'
+
+    # Contatti collegati
+    links = PropertyContact.query.filter_by(property_id=prop_id).all()
+    contacts_data = []
+    for link in links:
+        c = Contact.query.get(link.contact_id)
+        if c:
+            contacts_data.append({'contact': c, 'relation': link.relation_type})
+
+    # Storico ultime 10 modifiche
+    history = (PropertyHistory.query.filter_by(property_id=prop_id)
+               .order_by(PropertyHistory.changed_at.desc()).limit(10).all())
+
+    html_str = render_template('property_print.html',
+        prop=prop, mun=mun, research=research,
+        photo_url=photo_url, contacts=contacts_data,
+        history=history,
+        now=datetime.utcnow().strftime('%d/%m/%Y %H:%M'))
+
+    pdf = HTML(string=html_str, base_url=current_app.root_path).write_pdf()
+    response = make_response(pdf)
+    response.headers['Content-Type']        = 'application/pdf'
+    response.headers['Content-Disposition'] = f'inline; filename=immobile-{prop_id}.pdf'
+    return response
+
 
 def _save_photos(prop_id, req):
     upload_folder = current_app.config.get('UPLOAD_FOLDER', 'app/static/uploads')

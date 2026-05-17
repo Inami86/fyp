@@ -8,8 +8,9 @@
       {% if pagination.pages > 1 %}— pagina {{ pagination.page }} di {{ pagination.pages }}{% endif %}
     </p>
   </div>
-  <div style="display:flex;gap:8px">
-    <a href="{{ url_for('main.export_properties_csv') }}" class="btn btn-secondary btn-sm">⬇ CSV</a>
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <a href="{{ url_for('main.export_properties_csv') }}"  class="btn btn-secondary btn-sm">⬇ CSV</a>
+    <a href="{{ url_for('main.export_properties_xlsx') }}" class="btn btn-secondary btn-sm">⬇ Excel</a>
     {% if current_user.role in ['admin','editor'] %}
     <a href="{{ url_for('properties.new_property') }}" class="btn btn-primary">+ Nuovo</a>
     {% endif %}

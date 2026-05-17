@@ -1,9 +1,10 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash, session
+import csv, io
+from datetime import datetime
+from flask import Blueprint, render_template, request, redirect, url_for, flash, session, Response, send_file
 from flask_login import login_required, current_user
-from app import db
+from app import db, limiter
 from app.models import Contact, ActivityLog, PropertyContact, Property, Municipality
 from app.utils import editor_required
-from datetime import datetime
 
 
 def _parse_coord(val):
@@ -48,6 +49,7 @@ def detail_contact(contact_id):
 @contacts_bp.route('/new', methods=['GET', 'POST'])
 @login_required
 @editor_required
+@limiter.limit("60 per minute", methods=["POST"])
 def new_contact():
     research_id = session.get('active_research_id')
     properties  = Property.query.filter_by(research_id=research_id).order_by(Property.title).all()
@@ -107,6 +109,7 @@ def edit_contact(contact_id):
 @contacts_bp.route('/<int:contact_id>/delete', methods=['POST'])
 @login_required
 @editor_required
+@limiter.limit("30 per minute")
 def delete_contact(contact_id):
     contact = Contact.query.get_or_404(contact_id)
     research_id, name = contact.research_id, contact.name
@@ -117,6 +120,95 @@ def delete_contact(contact_id):
     db.session.commit()
     flash('Contatto eliminato.', 'success')
     return redirect(url_for('contacts.list_contacts'))
+
+# ── EXPORT ───────────────────────────────────────────────────────────────────
+def _csv_safe(value):
+    s = str(value)
+    return "'" + s if s and s[0] in ('=', '+', '-', '@') else s
+
+
+def _contacts_rows(research_id):
+    contacts = Contact.query.filter_by(research_id=research_id).order_by(Contact.name).all()
+    rows = []
+    for c in contacts:
+        n_props = PropertyContact.query.filter_by(contact_id=c.id).count()
+        rows.append((c, n_props))
+    return rows
+
+
+@contacts_bp.route('/export-csv')
+@login_required
+def export_contacts_csv():
+    research_id = session.get('active_research_id')
+    output = io.StringIO()
+    output.write('﻿')  # BOM UTF-8
+    w = csv.writer(output)
+    w.writerow(['ID', 'Nome', 'Tipo', 'Telefono', 'Email', 'Agenzia',
+                'Città', 'Indirizzo', 'N° immobili', 'Data creazione'])
+    for c, n_props in _contacts_rows(research_id):
+        w.writerow([
+            c.id,
+            _csv_safe(c.name or ''),
+            c.contact_type or '',
+            _csv_safe(c.phone or ''),
+            _csv_safe(c.email or ''),
+            _csv_safe(c.agency or ''),
+            c.city or '',
+            _csv_safe(c.address or ''),
+            n_props,
+            c.created_at.strftime('%d/%m/%Y') if c.created_at else '',
+        ])
+    return Response(output.getvalue(), mimetype='text/csv; charset=utf-8',
+        headers={'Content-Disposition': 'attachment; filename=contatti.csv'})
+
+
+@contacts_bp.route('/export-xlsx')
+@login_required
+def export_contacts_xlsx():
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment
+
+    research_id = session.get('active_research_id')
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Contatti'
+
+    header_font = Font(bold=True, color='FFFFFF')
+    header_fill = PatternFill('solid', fgColor='2D6A4F')
+    headers = ['ID', 'Nome', 'Tipo', 'Telefono', 'Email', 'Agenzia',
+               'Città', 'Indirizzo', 'N° immobili', 'Data creazione']
+    ws.append(headers)
+    for cell in ws[1]:
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal='center')
+    ws.freeze_panes = 'A2'
+    ws.auto_filter.ref = ws.dimensions
+
+    for c, n_props in _contacts_rows(research_id):
+        ws.append([
+            c.id,
+            c.name or '',
+            c.contact_type or '',
+            c.phone or '',
+            c.email or '',
+            c.agency or '',
+            c.city or '',
+            c.address or '',
+            n_props,
+            c.created_at.strftime('%d/%m/%Y') if c.created_at else '',
+        ])
+    for col in ws.columns:
+        ws.column_dimensions[col[0].column_letter].width = max(
+            len(str(cell.value or '')) for cell in col) + 4
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return send_file(buf,
+        mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        as_attachment=True, download_name='contatti.xlsx')
+
 
 # ── Collega immobile da scheda contatto ──────────────────────────────────────
 @contacts_bp.route('/<int:contact_id>/link_property', methods=['POST'])

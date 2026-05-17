@@ -1,7 +1,12 @@
 """seed.py — v0.0.7 — Carica i 404 comuni Calabria dal GeoJSON regionale."""
 import json
+import os
+import sys
 from pathlib import Path
 from werkzeug.security import generate_password_hash
+
+if os.environ.get('FLASK_ENV') == 'production':
+    sys.exit('seed.py non può essere eseguito in produzione.')
 
 BASE_DIR = Path(__file__).resolve().parent
 

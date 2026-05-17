@@ -1,4 +1,5 @@
 import os
+from datetime import timedelta
 from pathlib import Path
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -37,7 +38,11 @@ class ProductionConfig(Config):
         'pool_pre_ping': True,
         'connect_args': {'sslmode': 'prefer'}
     }
-    SECRET_KEY = os.environ.get('SECRET_KEY', '')
+    SECRET_KEY = os.environ['SECRET_KEY']  # KeyError esplicito se assente in produzione
+    SESSION_COOKIE_SECURE   = True
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    PERMANENT_SESSION_LIFETIME = timedelta(days=7)
 
 
 config_map = {

@@ -24,6 +24,9 @@ app/uploads/
 .env
 .env.local
 
+# Script di utilità con potenziali credenziali
+create_admin.py
+
 # Flask / Alembic
 migrations/versions/__pycache__/
 

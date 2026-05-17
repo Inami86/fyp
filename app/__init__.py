@@ -20,8 +20,6 @@ def create_app(env='development'):
 
     from config import config_map
     cfg = config_map.get(env, config_map['default'])
-    if env == 'production' and not cfg.SECRET_KEY:
-        raise RuntimeError("SECRET_KEY environment variable must be set in production")
     app.config.from_object(cfg)
     Path(app.config['UPLOAD_FOLDER']).mkdir(parents=True, exist_ok=True)
 

@@ -1,7 +1,7 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, session
 from flask_login import login_required, current_user
 from werkzeug.security import generate_password_hash
-from app import db
+from app import db, limiter
 from app.models import User, ActivityLog, Research, ResearchUser, Property, Contact
 from app.utils import admin_required
 
@@ -34,6 +34,7 @@ def dashboard():
 @admin_bp.route('/users/new', methods=['POST'])
 @login_required
 @admin_required
+@limiter.limit("20 per minute")
 def new_user():
     email = request.form.get('email', '').strip()
     if User.query.filter_by(email=email).first():
@@ -54,6 +55,7 @@ def new_user():
 @admin_bp.route('/users/<int:user_id>/edit', methods=['POST'])
 @login_required
 @admin_required
+@limiter.limit("20 per minute")
 def edit_user(user_id):
     user = User.query.get_or_404(user_id)
     if user.id == current_user.id:
@@ -81,6 +83,7 @@ def edit_user(user_id):
 @admin_bp.route('/users/<int:user_id>/delete', methods=['POST'])
 @login_required
 @admin_required
+@limiter.limit("20 per minute")
 def delete_user(user_id):
     user = User.query.get_or_404(user_id)
     if user.id == current_user.id:

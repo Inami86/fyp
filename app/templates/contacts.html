@@ -2,9 +2,13 @@
 {% block content %}
 <div class="page-header">
   <h1>👤 Contatti</h1>
-  {% if current_user.role in ['admin','editor'] %}
-  <a href="{{ url_for('contacts.new_contact') }}" class="btn btn-primary">+ Nuovo</a>
-  {% endif %}
+  <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <a href="{{ url_for('contacts.export_contacts_csv') }}"  class="btn btn-secondary btn-sm">⬇ CSV</a>
+    <a href="{{ url_for('contacts.export_contacts_xlsx') }}" class="btn btn-secondary btn-sm">⬇ Excel</a>
+    {% if current_user.role in ['admin','editor'] %}
+    <a href="{{ url_for('contacts.new_contact') }}" class="btn btn-primary">+ Nuovo</a>
+    {% endif %}
+  </div>
 </div>
 
 {% if contacts %}

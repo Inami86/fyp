@@ -18,8 +18,10 @@
       {% endif %}
     </div>
   </div>
-  {% if current_user.role in ['admin','editor'] %}
-  <div style="display:flex;gap:8px;flex-shrink:0">
+  <div style="display:flex;gap:8px;flex-shrink:0;flex-wrap:wrap">
+    <a href="{{ url_for('properties.property_pdf', prop_id=prop.id) }}"
+       target="_blank" class="btn btn-secondary">⬇ PDF</a>
+    {% if current_user.role in ['admin','editor'] %}
     <a href="{{ url_for('properties.edit_property', prop_id=prop.id) }}"
        class="btn btn-secondary">✏️ Modifica</a>
     <form method="post"
@@ -27,8 +29,8 @@
           onsubmit="return confirm('Eliminare questo immobile?')">
       <button class="btn btn-ghost" style="color:var(--error)">🗑</button>
     </form>
+    {% endif %}
   </div>
-  {% endif %}
 </div>
 
 <div class="layout-2col">

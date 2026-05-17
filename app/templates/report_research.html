@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>Report — {{ research.name }}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; font-size: 10.5pt; color: #1a1a1a; }
+  @page { size: A4; margin: 18mm 16mm; }
+  @page :first { margin-top: 0; }
+
+  /* ── Copertina ── */
+  .cover { height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: flex-start; background: linear-gradient(135deg, #1B4332 0%, #2D6A4F 60%, #52B788 100%); color: white; padding: 40mm 20mm; page-break-after: always; }
+  .cover h1 { font-size: 28pt; margin-bottom: 10px; line-height: 1.2; }
+  .cover .subtitle { font-size: 14pt; opacity: 0.85; margin-bottom: 30px; }
+  .cover .meta-line { font-size: 10pt; opacity: 0.7; line-height: 2; }
+  .cover .logo { font-size: 11pt; opacity: 0.6; margin-top: 40px; letter-spacing: 2px; text-transform: uppercase; }
+
+  /* ── Corpo ── */
+  .section { margin-bottom: 22px; }
+  .section-title { font-size: 11pt; font-weight: bold; text-transform: uppercase; letter-spacing: 0.5px; color: #2D6A4F; border-bottom: 2px solid #95D5B2; padding-bottom: 4px; margin-bottom: 12px; }
+
+  /* KPI grid */
+  .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 20px; }
+  .kpi-card { background: #f1f8f4; border-radius: 8px; padding: 12px 14px; text-align: center; border-left: 4px solid #2D6A4F; }
+  .kpi-card .num { font-size: 22pt; font-weight: bold; color: #2D6A4F; }
+  .kpi-card .label { font-size: 8pt; color: #555; margin-top: 3px; }
+
+  /* Grafici */
+  .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 20px; }
+  .chart-box { text-align: center; }
+  .chart-box img { width: 100%; border-radius: 6px; border: 1px solid #e0e0e0; }
+  .chart-box .chart-title { font-size: 9pt; color: #555; margin-top: 4px; }
+  .chart-full img { width: 100%; border-radius: 6px; border: 1px solid #e0e0e0; }
+
+  /* Tabelle */
+  table { width: 100%; border-collapse: collapse; font-size: 9.5pt; margin-bottom: 16px; }
+  table th { background: #2D6A4F; color: white; padding: 5px 8px; text-align: left; font-size: 8.5pt; }
+  table td { padding: 5px 8px; border-bottom: 1px solid #eee; vertical-align: top; }
+  table tr:nth-child(even) td { background: #f9f9f9; }
+
+  .footer { margin-top: 20px; padding-top: 8px; border-top: 1px solid #ddd; font-size: 8pt; color: #aaa; display: flex; justify-content: space-between; }
+  .page-break { page-break-before: always; }
+</style>
+</head>
+<body>
+
+<!-- COPERTINA -->
+<div class="cover">
+  <div class="logo">FyP — Trova il tuo Posto</div>
+  <h1>{{ research.name }}</h1>
+  <div class="subtitle">{{ research.region }}</div>
+  <div class="meta-line">
+    Report generato il {{ now }}<br>
+    Autore: {{ author }}<br>
+    Immobili analizzati: {{ kpi.total }}
+  </div>
+</div>
+
+<!-- KPI -->
+<div class="section">
+  <div class="section-title">Riepilogo</div>
+  <div class="kpi-grid">
+    <div class="kpi-card"><div class="num">{{ kpi.total }}</div><div class="label">Totale immobili</div></div>
+    <div class="kpi-card"><div class="num">{{ kpi.interessanti }}</div><div class="label">Interessanti</div></div>
+    <div class="kpi-card"><div class="num">{{ kpi.da_valutare }}</div><div class="label">Da valutare</div></div>
+    <div class="kpi-card"><div class="num">{{ kpi.scartati }}</div><div class="label">Scartati</div></div>
+    <div class="kpi-card"><div class="num">{{ kpi.offerta }}</div><div class="label">Offerta fatta</div></div>
+    <div class="kpi-card"><div class="num">{% if kpi.avg_price %}€ {{ '{:,.0f}'.format(kpi.avg_price).replace(',', '.') }}{% else %}—{% endif %}</div><div class="label">Prezzo medio</div></div>
+    <div class="kpi-card"><div class="num">{{ kpi.comuni_coperti }}</div><div class="label">Comuni con immobili</div></div>
+    <div class="kpi-card"><div class="num">{{ kpi.total_muns }}</div><div class="label">Tot. comuni regione</div></div>
+  </div>
+</div>
+
+<!-- GRAFICI -->
+{% if chart_stati_img or chart_prezzi_img %}
+<div class="section">
+  <div class="section-title">Grafici</div>
+  <div class="charts">
+    {% if chart_stati_img %}
+    <div class="chart-box">
+      <img src="data:image/png;base64,{{ chart_stati_img }}" alt="Distribuzione stati">
+      <div class="chart-title">Distribuzione per stato</div>
+    </div>
+    {% endif %}
+    {% if chart_prezzi_img %}
+    <div class="chart-box">
+      <img src="data:image/png;base64,{{ chart_prezzi_img }}" alt="Prezzi per comune">
+      <div class="chart-title">Prezzo medio per comune (top 10)</div>
+    </div>
+    {% endif %}
+  </div>
+  {% if chart_inserimenti_img %}
+  <div class="chart-full">
+    <img src="data:image/png;base64,{{ chart_inserimenti_img }}" alt="Inserimenti nel tempo">
+    <div class="chart-title" style="text-align:center; margin-top:4px;">Immobili inseriti per mese</div>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+<!-- TABELLA IMMOBILI -->
+<div class="section page-break">
+  <div class="section-title">Immobili (primi {{ props|length }})</div>
+  <table>
+    <thead>
+      <tr><th>#</th><th>Titolo</th><th>Comune</th><th>Tipologia</th><th>Stato</th><th>Prezzo (€)</th><th>Data</th></tr>
+    </thead>
+    <tbody>
+    {% for p in props %}
+    <tr>
+      <td>{{ p.id }}</td>
+      <td>{{ p.title }}</td>
+      <td>{{ p.municipality.name if p.municipality else '—' }}</td>
+      <td>{{ p.property_type or '—' }}</td>
+      <td>{{ p.status }}</td>
+      <td>{% if p.price %}{{ '{:,.0f}'.format(p.price).replace(',', '.') }}{% else %}—{% endif %}</td>
+      <td>{{ p.created_at.strftime('%d/%m/%Y') if p.created_at else '—' }}</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+<!-- TABELLA PER COMUNE -->
+{% if price_by_mun %}
+<div class="section">
+  <div class="section-title">Prezzo medio per comune</div>
+  <table>
+    <thead><tr><th>Comune</th><th>Prezzo medio (€)</th></tr></thead>
+    <tbody>
+    {% for name, avg in price_by_mun %}
+    <tr><td>{{ name }}</td><td>{{ '{:,.0f}'.format(avg).replace(',', '.') }}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<div class="footer">
+  <span>FyP — {{ research.name }} — Report generato il {{ now }}</span>
+  <span>Pagina <pdf:pagenumber> di <pdf:pagecount></span>
+</div>
+
+</body>
+</html>

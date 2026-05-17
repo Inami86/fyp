@@ -163,7 +163,9 @@
         <a class="btn btn-secondary" href="{{ url_for('contacts.new_contact') }}">👤 Nuovo contatto</a>
         {% endif %}
         <a class="btn btn-secondary" href="{{ url_for('properties.list_properties') }}">📋 Lista immobili</a>
-        <a class="btn btn-ghost"     href="{{ url_for('main.export_properties_csv') }}">⬇ Esporta CSV</a>
+        <a class="btn btn-ghost" href="{{ url_for('main.export_properties_csv') }}">⬇ CSV</a>
+        <a class="btn btn-ghost" href="{{ url_for('main.export_properties_xlsx') }}">⬇ Excel</a>
+        <a class="btn btn-ghost" href="{{ url_for('main.export_research_pdf') }}">⬇ Report PDF</a>
       </div>
     </div>
     <div class="card card-body" style="font-size:13px">
