@@ -3,7 +3,7 @@ from datetime import datetime
 from flask import (Blueprint, render_template, redirect, url_for,
                    session, jsonify, request, Response)
 from flask_login import login_required, current_user
-from sqlalchemy import func
+from sqlalchemy import func, extract, cast, String
 from app.models import (Research, ResearchUser, Municipality, Property,
                          Contact, ActivityLog, User)
 from app import db
@@ -71,9 +71,12 @@ def index():
     }
 
     # ── Grafico 3: linea — inserimenti nel tempo (per mese) ───────────────
-    monthly_raw = (db.session.query(
-                        func.strftime('%Y-%m', Property.created_at).label('month'),
-                        func.count(Property.id))
+    month_expr = func.concat(
+        cast(extract('year', Property.created_at), String),
+        '-',
+        func.lpad(cast(extract('month', Property.created_at), String), 2, '0')
+    ).label('month')
+    monthly_raw = (db.session.query(month_expr, func.count(Property.id))
                    .filter(Property.research_id == rid,
                            Property.created_at.isnot(None))
                    .group_by('month')
