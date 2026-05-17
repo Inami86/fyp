@@ -39,12 +39,14 @@ def load_municipalities(region):
             gj = json.load(f)
     except (json.JSONDecodeError, OSError):
         return 0
+
+    # Carica TUTTI i comuni della regione in UNA query (evita N+1)
+    existing_names = {m.name for m in Municipality.query.filter_by(region=region).all()}
+
     count = 0
     for feat in gj['features']:
         name = feat['properties'].get('name', '').strip()
-        if not name: continue
-        if Municipality.query.filter_by(name=name, region=region).first():
-            continue
+        if not name or name in existing_names: continue
         coords = []
         g = feat['geometry']
         if g['type'] == 'MultiPolygon':
@@ -58,6 +60,7 @@ def load_municipalities(region):
                                      research_status='unexplored',
                                      center_lat=lat, center_lng=lng))
         count += 1
+    db.session.commit()
     return count
 
 @researches_bp.route('/')
