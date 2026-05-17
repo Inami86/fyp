@@ -1,2 +1,5 @@
+import os
 from app import create_app
-app = create_app('production')
+
+env = os.getenv('FLASK_ENV', 'production')
+app = create_app(env)
