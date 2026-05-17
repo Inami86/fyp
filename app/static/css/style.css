@@ -195,8 +195,9 @@ h1,h2,h3,h4 { font-family: var(--font-display); line-height: 1.2; }
   .admin-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 768px) {
-  .map-layout { grid-template-columns: 1fr; height: auto; }
-  .map-container { height: 55vmax; }
+  .map-layout { grid-template-columns: 1fr; height: auto; min-height: 400px; }
+  .map-container { height: 500px; min-height: 400px; }
+  .map-sidebar { display: none; }
   .form-2col { grid-template-columns: 1fr; }
   .page-shell { padding: 16px; }
   .topbar { padding: 0 14px; }
