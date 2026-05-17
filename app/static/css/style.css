@@ -130,8 +130,8 @@ h1,h2,h3,h4 { font-family: var(--font-display); line-height: 1.2; }
 .property-card .card-footer { padding: 12px 16px; border-top: 1px solid var(--border); display: flex; gap: 8px; align-items: center; }
 
 /* ── MAP PAGE ──────────────────────────────────────────────────────── */
-.map-layout { display: grid; grid-template-columns: 300px 1fr 320px; gap: 16px; height: calc(100dvh - 62px - 56px); }
-.map-sidebar, .map-detail { overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+.map-layout { display: grid; grid-template-columns: 1fr 320px; gap: 16px; height: calc(100dvh - 62px - 56px); }
+.map-sidebar { overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
 .map-container { position: relative; border-radius: var(--r-lg); overflow: hidden; box-shadow: var(--shadow-md); }
 #map { height: 100%; min-height: 500px; background: #e8ede7; }
 .map-fab { position: absolute; bottom: 18px; right: 18px; z-index: 500; }
