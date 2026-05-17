@@ -21,6 +21,12 @@ def create_app(env='development'):
     from config import config_map
     cfg = config_map.get(env, config_map['default'])
     app.config.from_object(cfg)
+
+    # Fail-fast: in produzione SECRET_KEY è obbligatoria
+    if env == 'production' and not app.config.get('SECRET_KEY'):
+        raise RuntimeError(
+            "SECRET_KEY environment variable is required in production")
+
     Path(app.config['UPLOAD_FOLDER']).mkdir(parents=True, exist_ok=True)
 
     db.init_app(app)

@@ -38,15 +38,27 @@ class ProductionConfig(Config):
         'pool_pre_ping': True,
         'connect_args': {'sslmode': 'prefer'}
     }
-    SECRET_KEY = os.environ['SECRET_KEY']  # KeyError esplicito se assente in produzione
+    # SECRET_KEY validata in create_app() per evitare KeyError all'import
+    SECRET_KEY = os.environ.get('SECRET_KEY')
     SESSION_COOKIE_SECURE   = True
     SESSION_COOKIE_HTTPONLY = True
     SESSION_COOKIE_SAMESITE = 'Lax'
     PERMANENT_SESSION_LIFETIME = timedelta(days=7)
 
 
+class TestingConfig(Config):
+    TESTING = True
+    DEBUG = False
+    SECRET_KEY = 'test-secret'
+    SQLALCHEMY_DATABASE_URI = 'sqlite:///:memory:'
+    WTF_CSRF_ENABLED = False
+    RATELIMIT_ENABLED = False
+    UPLOAD_FOLDER = str(BASE_DIR / 'app' / 'uploads')
+
+
 config_map = {
     'development': DevelopmentConfig,
     'production':  ProductionConfig,
+    'testing':     TestingConfig,
     'default':     DevelopmentConfig,
 }
